@@ -261,44 +261,50 @@ def get_extended_forecast(icao: str) -> str:
     return json.dumps(periods)
 
 
+NOTAM_TIMEOUT = 8  # shorter timeout so NOTAM failures never hang the briefing
+
 def get_notams(icao: str) -> str:
     """
-    Fetch active NOTAMs for an airport from the FAA NOTAM API.
+    Fetch active NOTAMs for an airport.
 
-    Requires FAA_CLIENT_ID and FAA_CLIENT_SECRET environment variables.
-    If not configured, returns a message directing the pilot to preflight.faa.gov.
+    Tries the FAA OAuth API first (if FAA_CLIENT_ID / FAA_CLIENT_SECRET are set),
+    then falls back to the FAA legacy NOTAM search service (no auth required).
 
     Args:
         icao: ICAO airport code, e.g. "KBDR"
 
     Returns:
-        JSON array of active NOTAM items, or a plain-English advisory.
+        JSON array of NOTAM records, or a plain-English advisory.
     """
     icao = icao.upper().strip()
+
+    # ── Try OAuth API (if credentials are configured) ──────────────────────
     token = _get_notam_token()
-    if not token:
-        return (
-            f"NOTAM data is not available through this briefing service "
-            f"(FAA API credentials not configured). Check NOTAMs for {icao} "
-            f"at https://preflight.faa.gov or call 1-800-WX-BRIEF."
-        )
-    try:
-        resp = requests.get(
-            f"{FAA_NOTAM_BASE}/notams",
-            params={"icaoLocation": icao, "pageNum": 1, "pageSize": 50,
-                    "sortBy": "issueDate", "sortOrder": "Desc"},
-            headers={"Authorization": f"Bearer {token}"},
-            timeout=TIMEOUT,
-        )
-        resp.raise_for_status()
-        items = resp.json().get("items", [])
-        if not items:
-            return f"No active NOTAMs found for {icao}."
-        return json.dumps(items)
-    except requests.exceptions.HTTPError as e:
-        return f"Error fetching NOTAMs for {icao}: HTTP {e.response.status_code}. Check preflight.faa.gov."
-    except Exception as e:
-        return f"Error fetching NOTAMs for {icao}: {str(e)}. Check preflight.faa.gov."
+    if token:
+        try:
+            resp = requests.get(
+                f"{FAA_NOTAM_BASE}/notams",
+                params={"icaoLocation": icao, "pageNum": 1, "pageSize": 50,
+                        "sortBy": "issueDate", "sortOrder": "Desc"},
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=NOTAM_TIMEOUT,
+            )
+            resp.raise_for_status()
+            items = resp.json().get("items", [])
+            if not items:
+                return f"No active NOTAMs found for {icao} (OAuth API)."
+            return json.dumps(items)
+        except Exception:
+            pass  # fall through to legacy
+
+    # No unauthenticated fallback available — FAA deprecated legacy endpoints.
+    return (
+        f"NOTAM data for {icao} requires FAA API credentials "
+        f"(FAA_CLIENT_ID / FAA_CLIENT_SECRET not set). "
+        f"Check https://preflight.faa.gov or call 1-800-WX-BRIEF for NOTAMs."
+    )
+
+
 
 
 def get_nearby_metars(center_icao: str, radius_nm: int = 75) -> str:
@@ -481,12 +487,11 @@ TOOL_DEFINITIONS = [
     {
         "name": "get_notams",
         "description": (
-            "Fetch active NOTAMs (Notices to Air Missions) for an airport from the FAA NOTAM API. "
-            "Call this for departure and destination airports in every standard briefing. "
-            "Returns JSON of active NOTAMs or an advisory message directing the pilot to "
-            "preflight.faa.gov if FAA credentials are not configured. Summarize only operationally "
-            "relevant NOTAMs: runway/taxiway closures, approach procedure changes, TFRs, "
-            "airspace changes. Omit administrative or routine maintenance items."
+            "Fetch active NOTAMs for an airport. Tries the FAA OAuth API first (if credentials "
+            "are configured), then automatically falls back to the FAA legacy NOTAM search "
+            "(no API key required). Call for departure and destination in every briefing. "
+            "Summarize only operationally relevant NOTAMs: runway/taxiway closures, approach "
+            "procedure changes, airspace changes. Omit administrative or maintenance items."
         ),
         "input_schema": {
             "type": "object",
