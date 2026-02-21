@@ -449,6 +449,8 @@
     <div class="topbar-spacer"></div>
 
     <button class="btn-save" id="btn-save-briefing">↓ Save</button>
+    <button class="btn-save" id="btn-copy-briefing">⎘ Copy</button>
+    <button class="btn-save" id="btn-email-briefing">✉ Email</button>
     <button class="btn-new" id="btn-new-briefing">↺ New</button>
   </header>
 
@@ -586,6 +588,8 @@
   btnSend.addEventListener('click', sendMessage);
   btnNew.addEventListener('click', newBriefing);
   document.getElementById('btn-save-briefing').addEventListener('click', saveBriefing);
+  document.getElementById('btn-copy-briefing').addEventListener('click', copyBriefing);
+  document.getElementById('btn-email-briefing').addEventListener('click', emailBriefing);
 
   /* ── Helpers ── */
   function scrollBottom() {
@@ -735,18 +739,24 @@
     msgInput.focus();
   }
 
-  /* ── Save briefing as text file ── */
-  function saveBriefing() {
+  /* ── Build briefing text (shared by save/copy/email) ── */
+  function buildBriefingText() {
     const messages = [];
     chatArea.querySelectorAll('.message').forEach(msg => {
       const role = msg.classList.contains('user') ? 'PILOT' : 'FLIGHT WATCH';
       const text = msg.querySelector('.message-bubble')?.innerText?.trim();
       if (text) messages.push(`[${role}]\n${text}`);
     });
-    if (!messages.length) return;
+    if (!messages.length) return '';
     const sep = '\n\n' + '─'.repeat(60) + '\n\n';
     const header = `FLIGHT WATCH WEATHER BRIEFING\n${new Date().toUTCString()}\nDeparture: ${depInput.value || '—'}  Destination: ${destInput.value || '—'}  Aircraft: ${aircraftInput.value || '—'}\n${'═'.repeat(60)}\n\n`;
-    const content = header + messages.join(sep);
+    return header + messages.join(sep);
+  }
+
+  /* ── Save briefing as text file ── */
+  function saveBriefing() {
+    const content = buildBriefingText();
+    if (!content) return;
     const ts = new Date().toISOString().slice(0, 16).replace(/[T:]/g, '-');
     const blob = new Blob([content], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
@@ -755,6 +765,38 @@
     a.download = `briefing-${ts}.txt`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  /* ── Copy briefing to clipboard ── */
+  async function copyBriefing() {
+    const content = buildBriefingText();
+    if (!content) return;
+    const btn = document.getElementById('btn-copy-briefing');
+    try {
+      await navigator.clipboard.writeText(content);
+      btn.textContent = '✓ Copied';
+      setTimeout(() => { btn.textContent = '⎘ Copy'; }, 2000);
+    } catch {
+      btn.textContent = '✗ Failed';
+      setTimeout(() => { btn.textContent = '⎘ Copy'; }, 2000);
+    }
+  }
+
+  /* ── Email briefing ── */
+  function emailBriefing() {
+    const content = buildBriefingText();
+    if (!content) return;
+    const dep = depInput.value || 'DEP';
+    const dest = destInput.value || 'DEST';
+    const subject = encodeURIComponent(`Flight Watch Briefing: ${dep} → ${dest}`);
+    // Email clients have URL length limits; truncate gracefully if needed
+    const maxBody = 1800;
+    const body = encodeURIComponent(
+      content.length > maxBody
+        ? content.slice(0, maxBody) + '\n\n[Briefing truncated — use Save to get full text]'
+        : content
+    );
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
   }
 </script>
 </body>
