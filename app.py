@@ -5,44 +5,43 @@ Flask web server for the Flight Briefer chatbot.
 import json
 import os
 import uuid
-from flask import Flask, request, jsonify, render_template, session, Response
+from flask import (Flask, request, jsonify, render_template,
+                   session, Response, stream_with_context)
 import briefer
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", os.urandom(32))
 
 # ── HTTP Basic Auth ──────────────────────────────────────────────────────────
-# Set BRIEFER_USER and BRIEFER_PASS env vars to enable password protection.
-# If neither is set (e.g. local dev), auth is skipped entirely.
 _AUTH_USER = os.environ.get("BRIEFER_USER", "")
 _AUTH_PASS = os.environ.get("BRIEFER_PASS", "")
 
 @app.before_request
 def require_auth():
     if not _AUTH_USER:
-        return  # no credentials configured — allow all (local dev)
+        return  # no credentials set — allow all (local dev)
     auth = request.authorization
     if auth and auth.username == _AUTH_USER and auth.password == _AUTH_PASS:
-        return  # valid credentials
+        return
     return Response(
         "Flight Watch — Authorization Required",
         401,
         {"WWW-Authenticate": 'Basic realm="Flight Watch"'},
     )
 
-# Load aircraft list once at startup
+# ── Aircraft list ────────────────────────────────────────────────────────────
 _AIRCRAFT_LIST_PATH = os.path.join(os.path.dirname(__file__), "aircraft.json")
 with open(_AIRCRAFT_LIST_PATH) as f:
     AIRCRAFT_LIST = json.load(f)
 
 
 def _get_session_id() -> str:
-    """Get or create a unique session ID stored in the Flask session cookie."""
     if "briefing_id" not in session:
         session["briefing_id"] = str(uuid.uuid4())
     return session["briefing_id"]
 
 
+# ── Routes ───────────────────────────────────────────────────────────────────
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -60,22 +59,24 @@ def chat():
 
     session_id = _get_session_id()
 
-    try:
-        response_text = briefer.chat(
-            session_id=session_id,
-            user_message=message,
-            aircraft=aircraft,
-            departure=departure,
-        )
-        return jsonify({"response": response_text})
-    except Exception as e:
-        app.logger.error("Error in briefer.chat: %s", str(e))
-        return jsonify({
-            "response": (
-                "Flight Watch is temporarily unavailable due to a system error. "
-                "Please contact your local FSS at 1-800-WX-BRIEF for a standard weather briefing."
-            )
-        })
+    def generate():
+        try:
+            for event in briefer.stream_chat(session_id, message, aircraft, departure):
+                yield f"data: {json.dumps(event)}\n\n"
+        except Exception as e:
+            app.logger.error("Streaming error: %s", str(e))
+            error = {"type": "error",
+                     "text": "A system error occurred. Please try again."}
+            yield f"data: {json.dumps(error)}\n\n"
+
+    return Response(
+        stream_with_context(generate()),
+        content_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @app.route("/reset", methods=["POST"])

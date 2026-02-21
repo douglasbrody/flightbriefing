@@ -5,6 +5,9 @@ Functions never raise exceptions to the caller.
 """
 
 import json
+import os
+import time
+from math import cos, radians
 import requests
 
 BASE_URL = "https://aviationweather.gov/api/data"
@@ -130,6 +133,38 @@ def get_winds_aloft(stations: list[str]) -> str:
     })
 
 
+FAA_NOTAM_BASE = "https://external-api.faa.gov/notamapi/v1"
+FAA_TOKEN_URL = "https://external-api.faa.gov/notamapi/oauth/token"
+_notam_token: str = ""
+_notam_token_expiry: float = 0.0
+
+
+def _get_notam_token() -> str:
+    """Fetch (or return cached) OAuth2 bearer token for FAA NOTAM API."""
+    global _notam_token, _notam_token_expiry
+    client_id = os.environ.get("FAA_CLIENT_ID", "")
+    client_secret = os.environ.get("FAA_CLIENT_SECRET", "")
+    if not client_id or not client_secret:
+        return ""
+    if _notam_token and time.time() < _notam_token_expiry - 30:
+        return _notam_token
+    try:
+        resp = requests.post(
+            FAA_TOKEN_URL,
+            data={"grant_type": "client_credentials",
+                  "client_id": client_id,
+                  "client_secret": client_secret},
+            timeout=TIMEOUT,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        _notam_token = data["access_token"]
+        _notam_token_expiry = time.time() + data.get("expires_in", 3600)
+        return _notam_token
+    except Exception:
+        return ""
+
+
 def _nws_get(url: str):
     """GET from the NWS API; returns parsed dict or an error string."""
     try:
@@ -224,6 +259,110 @@ def get_extended_forecast(icao: str) -> str:
     if not periods:
         return f"No extended forecast periods returned for {icao}."
     return json.dumps(periods)
+
+
+def get_notams(icao: str) -> str:
+    """
+    Fetch active NOTAMs for an airport from the FAA NOTAM API.
+
+    Requires FAA_CLIENT_ID and FAA_CLIENT_SECRET environment variables.
+    If not configured, returns a message directing the pilot to preflight.faa.gov.
+
+    Args:
+        icao: ICAO airport code, e.g. "KBDR"
+
+    Returns:
+        JSON array of active NOTAM items, or a plain-English advisory.
+    """
+    icao = icao.upper().strip()
+    token = _get_notam_token()
+    if not token:
+        return (
+            f"NOTAM data is not available through this briefing service "
+            f"(FAA API credentials not configured). Check NOTAMs for {icao} "
+            f"at https://preflight.faa.gov or call 1-800-WX-BRIEF."
+        )
+    try:
+        resp = requests.get(
+            f"{FAA_NOTAM_BASE}/notams",
+            params={"icaoLocation": icao, "pageNum": 1, "pageSize": 50,
+                    "sortBy": "issueDate", "sortOrder": "Desc"},
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=TIMEOUT,
+        )
+        resp.raise_for_status()
+        items = resp.json().get("items", [])
+        if not items:
+            return f"No active NOTAMs found for {icao}."
+        return json.dumps(items)
+    except requests.exceptions.HTTPError as e:
+        return f"Error fetching NOTAMs for {icao}: HTTP {e.response.status_code}. Check preflight.faa.gov."
+    except Exception as e:
+        return f"Error fetching NOTAMs for {icao}: {str(e)}. Check preflight.faa.gov."
+
+
+def get_nearby_metars(center_icao: str, radius_nm: int = 75) -> str:
+    """
+    Fetch METARs for all reporting stations within radius_nm of center_icao.
+
+    Useful for finding potential alternates when destination weather is marginal.
+    Looks up center airport coordinates from its METAR, then queries a bounding box.
+
+    Args:
+        center_icao: ICAO code of the center airport, e.g. "KHVN"
+        radius_nm: Search radius in nautical miles (default 75)
+
+    Returns:
+        JSON array of METAR records for nearby stations, or error message.
+    """
+    center_icao = center_icao.upper().strip()
+    metar_raw = _get("metar", {"ids": center_icao, "format": "json", "hours": 1})
+    try:
+        metars = json.loads(metar_raw)
+    except Exception:
+        return f"Error: Could not parse METAR for {center_icao} to get coordinates."
+    if not metars:
+        return f"Error: No METAR found for {center_icao}; cannot determine coordinates."
+    lat = metars[0].get("lat")
+    lon = metars[0].get("lon")
+    if lat is None or lon is None:
+        return f"Error: No coordinates in METAR for {center_icao}."
+
+    lat_deg = radius_nm / 60.0
+    lon_deg = radius_nm / (60.0 * max(cos(radians(float(lat))), 0.05))
+    bbox = (f"{float(lat) - lat_deg:.3f},{float(lon) - lon_deg:.3f},"
+            f"{float(lat) + lat_deg:.3f},{float(lon) + lon_deg:.3f}")
+    return _get("metar", {"bbox": bbox, "format": "json", "hours": 1})
+
+
+def calculate_density_altitude(temp_c: float, altimeter_inhg: float,
+                                field_elevation_ft: float) -> str:
+    """
+    Calculate pressure altitude and density altitude from METAR values.
+
+    Uses standard ICAO formulas. Results are used to assess DA40 XLS
+    takeoff and climb performance.
+
+    Args:
+        temp_c: Outside air temperature in degrees Celsius (from METAR)
+        altimeter_inhg: Altimeter setting in inches of mercury (from METAR)
+        field_elevation_ft: Airport field elevation in feet MSL
+
+    Returns:
+        JSON object with pressure_altitude_ft, density_altitude_ft,
+        isa_temp_c, temp_deviation_c.
+    """
+    pressure_alt = (29.92 - float(altimeter_inhg)) * 1000 + float(field_elevation_ft)
+    isa_temp = 15.0 - 1.98 * (pressure_alt / 1000.0)
+    density_alt = pressure_alt + 118.8 * (float(temp_c) - isa_temp)
+    return json.dumps({
+        "field_elevation_ft": round(float(field_elevation_ft)),
+        "pressure_altitude_ft": round(pressure_alt),
+        "density_altitude_ft": round(density_alt),
+        "isa_temp_at_pa_c": round(isa_temp, 1),
+        "actual_temp_c": float(temp_c),
+        "temp_deviation_from_isa_c": round(float(temp_c) - isa_temp, 1),
+    })
 
 
 # Tool definitions for Claude
@@ -340,6 +479,78 @@ TOOL_DEFINITIONS = [
         }
     },
     {
+        "name": "get_notams",
+        "description": (
+            "Fetch active NOTAMs (Notices to Air Missions) for an airport from the FAA NOTAM API. "
+            "Call this for departure and destination airports in every standard briefing. "
+            "Returns JSON of active NOTAMs or an advisory message directing the pilot to "
+            "preflight.faa.gov if FAA credentials are not configured. Summarize only operationally "
+            "relevant NOTAMs: runway/taxiway closures, approach procedure changes, TFRs, "
+            "airspace changes. Omit administrative or routine maintenance items."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "icao": {
+                    "type": "string",
+                    "description": "ICAO airport code, e.g. \"KBDR\""
+                }
+            },
+            "required": ["icao"]
+        }
+    },
+    {
+        "name": "get_nearby_metars",
+        "description": (
+            "Fetch METARs for all weather-reporting airports within a radius of a center airport. "
+            "Use this when destination weather is at or approaching minimums to identify potential "
+            "alternates. Returns current conditions at all nearby stations so you can identify "
+            "the best alternate based on weather, runway length, and available approaches."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "center_icao": {
+                    "type": "string",
+                    "description": "ICAO code of the center airport, e.g. \"KHVN\""
+                },
+                "radius_nm": {
+                    "type": "integer",
+                    "description": "Search radius in nautical miles (default 75)",
+                    "default": 75
+                }
+            },
+            "required": ["center_icao"]
+        }
+    },
+    {
+        "name": "calculate_density_altitude",
+        "description": (
+            "Calculate pressure altitude and density altitude from METAR values and field elevation. "
+            "Call this when temperature is above ISA standard or field elevation is above 1,000 ft MSL. "
+            "Essential for assessing DA40 XLS takeoff and climb performance on warm or high-altitude days. "
+            "Extract temp_c, altimeter setting, and field elevation from the METAR/airport data."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "temp_c": {
+                    "type": "number",
+                    "description": "Outside air temperature in degrees Celsius from METAR"
+                },
+                "altimeter_inhg": {
+                    "type": "number",
+                    "description": "Altimeter setting in inches of mercury from METAR"
+                },
+                "field_elevation_ft": {
+                    "type": "number",
+                    "description": "Airport field elevation in feet MSL"
+                }
+            },
+            "required": ["temp_c", "altimeter_inhg", "field_elevation_ft"]
+        }
+    },
+    {
         "name": "get_area_forecast_discussion",
         "description": (
             "Fetch the latest NWS Area Forecast Discussion (AFD) — a detailed meteorologist-written "
@@ -397,4 +608,7 @@ TOOL_FUNCTIONS = {
     "get_winds_aloft": get_winds_aloft,
     "get_area_forecast_discussion": get_area_forecast_discussion,
     "get_extended_forecast": get_extended_forecast,
+    "get_notams": get_notams,
+    "get_nearby_metars": get_nearby_metars,
+    "calculate_density_altitude": calculate_density_altitude,
 }

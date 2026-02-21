@@ -154,7 +154,7 @@
 
     .topbar-spacer { flex: 1; }
 
-    .btn-new {
+    .btn-new, .btn-save {
       background: transparent;
       border: 1px solid var(--border);
       border-radius: 4px;
@@ -169,6 +169,10 @@
     .btn-new:hover {
       border-color: var(--warn);
       color: var(--warn);
+    }
+    .btn-save:hover {
+      border-color: var(--accent);
+      color: var(--accent);
     }
 
     /* ── Chat Area ── */
@@ -444,7 +448,8 @@
 
     <div class="topbar-spacer"></div>
 
-    <button class="btn-new" id="btn-new-briefing">↺ New Briefing</button>
+    <button class="btn-save" id="btn-save-briefing">↓ Save</button>
+    <button class="btn-new" id="btn-new-briefing">↺ New</button>
   </header>
 
   <!-- Chat Area -->
@@ -580,59 +585,47 @@
 
   btnSend.addEventListener('click', sendMessage);
   btnNew.addEventListener('click', newBriefing);
+  document.getElementById('btn-save-briefing').addEventListener('click', saveBriefing);
 
-  /* ── Message rendering ── */
-  function appendMessage(role, text, isMarkdown = false) {
-    const wrap = document.createElement('div');
-    wrap.className = `message ${role}`;
-
-    const label = document.createElement('div');
-    label.className = 'message-label';
-    label.textContent = role === 'user' ? 'PILOT' : 'FLIGHT WATCH';
-    wrap.appendChild(label);
-
-    const bubble = document.createElement('div');
-    bubble.className = 'message-bubble';
-
-    if (isMarkdown) {
-      bubble.innerHTML = marked.parse(text);
-    } else {
-      bubble.textContent = text;
-    }
-
-    wrap.appendChild(bubble);
-    chatArea.appendChild(wrap);
-    scrollBottom();
-    return wrap;
-  }
-
-  function appendThinking() {
-    const wrap = document.createElement('div');
-    wrap.className = 'message briefer';
-
-    const label = document.createElement('div');
-    label.className = 'message-label';
-    label.textContent = 'FLIGHT WATCH';
-    wrap.appendChild(label);
-
-    const bubble = document.createElement('div');
-    bubble.className = 'thinking-bubble';
-    bubble.innerHTML = `
-      Fetching weather data&hellip;
-      <span class="thinking-dots">
-        <span></span><span></span><span></span>
-      </span>`;
-    wrap.appendChild(bubble);
-    chatArea.appendChild(wrap);
-    scrollBottom();
-    return wrap;
-  }
-
+  /* ── Helpers ── */
   function scrollBottom() {
     chatArea.scrollTop = chatArea.scrollHeight;
   }
 
-  /* ── Send message ── */
+  function appendMessage(role, text, isMarkdown = false) {
+    const wrap = document.createElement('div');
+    wrap.className = `message ${role}`;
+    const label = document.createElement('div');
+    label.className = 'message-label';
+    label.textContent = role === 'user' ? 'PILOT' : 'FLIGHT WATCH';
+    const bubble = document.createElement('div');
+    bubble.className = 'message-bubble';
+    if (isMarkdown) { bubble.innerHTML = marked.parse(text); }
+    else { bubble.textContent = text; }
+    wrap.appendChild(label);
+    wrap.appendChild(bubble);
+    chatArea.appendChild(wrap);
+    scrollBottom();
+  }
+
+  function appendThinking(statusMsg) {
+    const wrap = document.createElement('div');
+    wrap.className = 'message briefer';
+    const label = document.createElement('div');
+    label.className = 'message-label';
+    label.textContent = 'FLIGHT WATCH';
+    const bubble = document.createElement('div');
+    bubble.className = 'thinking-bubble';
+    bubble.innerHTML = `<span id="think-status">${statusMsg || 'Connecting\u2026'}</span>
+      <span class="thinking-dots"><span></span><span></span><span></span></span>`;
+    wrap.appendChild(label);
+    wrap.appendChild(bubble);
+    chatArea.appendChild(wrap);
+    scrollBottom();
+    return wrap;
+  }
+
+  /* ── Send message (streaming) ── */
   async function sendMessage() {
     if (isWaiting) return;
     const text = msgInput.value.trim();
@@ -640,14 +633,16 @@
 
     msgInput.value = '';
     msgInput.style.height = 'auto';
-
     appendMessage('user', text, false);
 
     isWaiting = true;
     btnSend.disabled = true;
-    statusText.textContent = 'FETCHING WEATHER DATA…';
+    statusText.textContent = 'CONNECTING…';
 
-    const thinkEl = appendThinking();
+    const thinkEl = appendThinking('Connecting\u2026');
+
+    let brieferBubble = null;
+    let fullText = '';
 
     try {
       const resp = await fetch('/chat', {
@@ -660,21 +655,69 @@
         }),
       });
 
-      const data = await resp.json();
-      thinkEl.remove();
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 
-      if (data.error) {
-        appendMessage('briefer', `Error: ${data.error}`, false);
-      } else {
-        appendMessage('briefer', data.response || '(No response received.)', true);
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // SSE events are separated by \n\n
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop();
+
+        for (const part of parts) {
+          const line = part.trim();
+          if (!line.startsWith('data: ')) continue;
+          let data;
+          try { data = JSON.parse(line.slice(6)); } catch { continue; }
+
+          if (data.type === 'status') {
+            statusText.textContent = data.text.toUpperCase();
+            const thinkStatus = thinkEl.querySelector('#think-status');
+            if (thinkStatus) thinkStatus.textContent = data.text;
+
+          } else if (data.type === 'text') {
+            // First text chunk — swap thinking bubble for real message bubble
+            if (thinkEl.parentNode) thinkEl.remove();
+            if (!brieferBubble) {
+              const wrap = document.createElement('div');
+              wrap.className = 'message briefer';
+              const lbl = document.createElement('div');
+              lbl.className = 'message-label';
+              lbl.textContent = 'FLIGHT WATCH';
+              brieferBubble = document.createElement('div');
+              brieferBubble.className = 'message-bubble';
+              wrap.appendChild(lbl);
+              wrap.appendChild(brieferBubble);
+              chatArea.appendChild(wrap);
+            }
+            fullText += data.text;
+            brieferBubble.innerHTML = marked.parse(fullText);
+            scrollBottom();
+
+          } else if (data.type === 'done') {
+            if (thinkEl.parentNode) thinkEl.remove();
+            if (brieferBubble) brieferBubble.innerHTML = marked.parse(fullText);
+            statusText.textContent = 'READY';
+
+          } else if (data.type === 'error') {
+            if (thinkEl.parentNode) thinkEl.remove();
+            appendMessage('briefer', data.text || 'A system error occurred.', false);
+            statusText.textContent = 'ERROR';
+          }
+        }
       }
-      statusText.textContent = 'READY';
+
+      if (thinkEl.parentNode) thinkEl.remove();
+
     } catch (err) {
-      thinkEl.remove();
-      appendMessage('briefer',
-        'Communications failure. Unable to reach Flight Watch. Please try again.',
-        false
-      );
+      if (thinkEl.parentNode) thinkEl.remove();
+      appendMessage('briefer', 'Communications failure. Please try again.', false);
       statusText.textContent = 'ERROR';
     } finally {
       isWaiting = false;
@@ -686,12 +729,32 @@
   /* ── New briefing ── */
   async function newBriefing() {
     if (isWaiting) return;
-    try {
-      await fetch('/reset', { method: 'POST' });
-    } catch (_) { /* best effort */ }
+    try { await fetch('/reset', { method: 'POST' }); } catch (_) {}
     chatArea.innerHTML = '';
     statusText.textContent = 'READY';
     msgInput.focus();
+  }
+
+  /* ── Save briefing as text file ── */
+  function saveBriefing() {
+    const messages = [];
+    chatArea.querySelectorAll('.message').forEach(msg => {
+      const role = msg.classList.contains('user') ? 'PILOT' : 'FLIGHT WATCH';
+      const text = msg.querySelector('.message-bubble')?.innerText?.trim();
+      if (text) messages.push(`[${role}]\n${text}`);
+    });
+    if (!messages.length) return;
+    const sep = '\n\n' + '─'.repeat(60) + '\n\n';
+    const header = `FLIGHT WATCH WEATHER BRIEFING\n${new Date().toUTCString()}\nDeparture: ${depInput.value || '—'}  Destination: ${destInput.value || '—'}  Aircraft: ${aircraftInput.value || '—'}\n${'═'.repeat(60)}\n\n`;
+    const content = header + messages.join(sep);
+    const ts = new Date().toISOString().slice(0, 16).replace(/[T:]/g, '-');
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `briefing-${ts}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 </script>
 </body>
