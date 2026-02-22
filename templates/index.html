@@ -194,6 +194,17 @@
     .rules-btn:hover { border-color: var(--bd2); color: var(--text); }
     .rules-btn.sel   { background: var(--glow); border-color: var(--ac); color: var(--ac); }
 
+    /* Flight type toggle (cross-country vs local) */
+    .type-grp { display: flex; gap: 8px; }
+    .type-btn {
+      flex: 1; background: var(--s2); border: 1px solid var(--bd); border-radius: 8px;
+      color: var(--mid); cursor: pointer; font-family: inherit;
+      font-size: 14px; font-weight: 600; padding: 11px;
+      text-align: center; transition: background .15s, border-color .15s, color .15s;
+    }
+    .type-btn:hover { border-color: var(--bd2); color: var(--text); }
+    .type-btn.sel   { background: var(--glow); border-color: var(--ac); color: var(--ac); }
+
     #modal-time-custom {
       display: none; width: 100%; background: var(--s2); border: 1px solid var(--bd);
       border-radius: 8px; color: var(--text); font-family: inherit;
@@ -440,6 +451,14 @@
       </div>
       <div class="modal-body">
 
+        <div class="fg">
+          <label class="flabel">Flight Type</label>
+          <div class="type-grp" id="type-grp">
+            <button class="type-btn sel" data-type="xc">✈ Cross Country</button>
+            <button class="type-btn" data-type="local">⟳ Local · Pattern</button>
+          </div>
+        </div>
+
         <div class="form-row">
           <div class="fg">
             <label class="flabel">From</label>
@@ -486,9 +505,8 @@
         <div class="fg">
           <label class="flabel">Flight Rules</label>
           <div class="rules-grp" id="rules-grp">
-            <button class="rules-btn sel" data-rules="VFR">VFR — Solo</button>
-            <button class="rules-btn" data-rules="IFR">IFR — With Instructor</button>
-            <button class="rules-btn" data-rules="LOCAL">Local · Pattern</button>
+            <button class="rules-btn sel" data-rules="VFR">VFR</button>
+            <button class="rules-btn" data-rules="IFR">IFR</button>
           </div>
         </div>
 
@@ -582,7 +600,7 @@ const acList   = document.getElementById('ac-list');
 const statusEl = document.getElementById('status-text');
 
 let aircraftList = [], acSelIdx = -1, isWaiting = false;
-let selTime = 'now', selAlt = '6500', selRules = 'VFR';
+let selTime = 'now', selAlt = '6500', selRules = 'VFR', selFlightType = 'xc';
 
 fetch('/aircraft').then(r => r.json()).then(l => { aircraftList = l; }).catch(() => {});
 
@@ -600,7 +618,10 @@ function getAltOptions(rules, depA, arrA) {
   if (rules === 'LOCAL') {
     const elev = depA ? depA.elev : 0;
     const tpa  = Math.round((elev + 1000) / 100) * 100;
-    return [{ alt: tpa, label: `TPA · ${tpa.toLocaleString()}` }];
+    return [
+      { alt: tpa, label: `~${tpa.toLocaleString()} (est. TPA)` },
+      { alt: 'custom', label: 'Custom…' },
+    ];
   }
 
   const bearing = (depA && arrA) ? calcBearing(depA.lat, depA.lon, arrA.lat, arrA.lon) : null;
@@ -634,9 +655,10 @@ function renderAltButtons() {
   const depA   = aptByIcao(depVal);
   const arrA   = aptByIcao(arrVal);
 
+  const isLocal = selFlightType === 'local';
   // Direction badge
   const badge = document.getElementById('dir-badge');
-  if (depA && arrA && selRules !== 'LOCAL') {
+  if (depA && arrA && !isLocal) {
     const brg = calcBearing(depA.lat, depA.lon, arrA.lat, arrA.lon);
     const dir = brg < 180 ? 'EASTBOUND' : 'WESTBOUND';
     const arrow = brg < 180 ? '↗' : '↙';
@@ -647,12 +669,12 @@ function renderAltButtons() {
     badge.classList.remove('show');
   }
 
-  const options = getAltOptions(selRules, depA, arrA);
+  const options = getAltOptions(isLocal ? 'LOCAL' : selRules, depA, arrA);
   const validAlts = options.map(o => String(o.alt));
 
   // Keep selAlt if still valid, otherwise pick sensible default
   if (!validAlts.includes(String(selAlt))) {
-    if (selRules === 'LOCAL') {
+    if (isLocal) {
       selAlt = String(options[0].alt);
     } else {
       // Pick middle non-custom option
@@ -791,7 +813,17 @@ document.querySelectorAll('[data-rules]').forEach(btn => {
     document.querySelectorAll('[data-rules]').forEach(b => b.classList.remove('sel'));
     btn.classList.add('sel');
     selRules = btn.dataset.rules;
-    setLocalMode(selRules === 'LOCAL');
+    renderAltButtons();
+  });
+});
+
+/* ─── Flight type buttons ─── */
+document.querySelectorAll('[data-type]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-type]').forEach(b => b.classList.remove('sel'));
+    btn.classList.add('sel');
+    selFlightType = btn.dataset.type;
+    setLocalMode(selFlightType === 'local');
     renderAltButtons();
   });
 });
@@ -810,7 +842,7 @@ document.getElementById('modal-submit').addEventListener('click', () => {
   const dep = (document.getElementById('dep').value.trim() || 'KBDR').toUpperCase();
   const arr = document.getElementById('arr').value.trim().toUpperCase();
 
-  if (selRules !== 'LOCAL' && !arr) {
+  if (selFlightType !== 'local' && !arr) {
     document.getElementById('arr').focus(); return;
   }
 
@@ -837,8 +869,8 @@ document.getElementById('modal-submit').addEventListener('click', () => {
   const acft = acInput.value.trim() || '2008 Diamond DA40 XLS';
   let message;
 
-  if (selRules === 'LOCAL') {
-    message = `I'd like a local area weather briefing for pattern work and local flight around ${dep}, ${timeStr}, at traffic pattern altitude (approximately ${altFmt} feet MSL), VFR, in a ${acft}.`;
+  if (selFlightType === 'local') {
+    message = `I'd like a local area weather briefing for pattern work and local flight around ${dep}, ${timeStr}, at approximately ${altFmt} feet MSL, VFR, in a ${acft}.`;
   } else {
     const rulesTxt = selRules === 'IFR' ? 'IFR with a flight instructor' : 'VFR solo';
     saveRoute(dep, arr);
