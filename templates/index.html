@@ -63,7 +63,6 @@
     .tb-sep    { width: 1px; height: 24px; background: var(--bd2); flex-shrink: 0; }
     .tb-space  { flex: 1; }
 
-    /* Aircraft autocomplete */
     .acft-wrap { position: relative; flex: 1; min-width: 140px; max-width: 260px; }
     .acft-tag  {
       position: absolute; left: 9px; top: 50%; transform: translateY(-50%);
@@ -88,7 +87,6 @@
     .ac-item:last-child { border-bottom: none; }
     .ac-item:hover, .ac-item.sel { background: var(--glow); color: var(--ac); }
 
-    /* Action buttons */
     .tb-actions { display: flex; gap: 5px; flex-shrink: 0; }
     .btn {
       display: inline-flex; align-items: center; gap: 5px;
@@ -139,8 +137,18 @@
     .modal-body { padding: 18px 24px 24px; display: flex; flex-direction: column; gap: 16px; }
 
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    .fg       { display: flex; flex-direction: column; gap: 6px; }
+    .fg       { display: flex; flex-direction: column; gap: 6px; transition: opacity .2s; }
+    .fg-dimmed { opacity: 0.35; pointer-events: none; }
     .flabel   { font-size: 10px; font-weight: 700; letter-spacing: 1.3px; text-transform: uppercase; color: var(--muted); }
+
+    /* Direction badge (beside altitude label) */
+    .alt-label-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .dir-badge {
+      display: none; font-size: 10px; font-weight: 700; letter-spacing: 0.4px;
+      padding: 2px 8px; border-radius: 10px;
+      background: var(--glow); color: var(--ac); border: 1px solid var(--bd2);
+    }
+    .dir-badge.show { display: inline-block; }
 
     /* Airport fields */
     .apt-wrap { position: relative; }
@@ -176,9 +184,9 @@
     .seg-btn:hover { border-color: var(--bd2); color: var(--text); }
     .seg-btn.sel   { background: var(--glow); border-color: var(--ac); color: var(--ac); }
 
-    .rules-grp { display: flex; gap: 8px; }
+    .rules-grp { display: flex; gap: 8px; flex-wrap: wrap; }
     .rules-btn {
-      flex: 1; background: var(--s2); border: 1px solid var(--bd); border-radius: 8px;
+      flex: 1; min-width: 100px; background: var(--s2); border: 1px solid var(--bd); border-radius: 8px;
       color: var(--mid); cursor: pointer; font-family: inherit;
       font-size: 13px; font-weight: 600; padding: 10px;
       text-align: center; transition: background .15s, border-color .15s, color .15s;
@@ -194,6 +202,15 @@
     }
     #modal-time-custom:focus { border-color: var(--ac); }
     #modal-time-custom.show  { display: block; }
+
+    #alt-custom-input {
+      display: none; width: 100%; background: var(--s2); border: 1px solid var(--bd);
+      border-radius: 8px; color: var(--text); font-family: inherit;
+      font-size: 14px; padding: 9px 12px; outline: none; margin-top: 6px;
+      transition: border-color .15s; -webkit-appearance: none;
+    }
+    #alt-custom-input:focus { border-color: var(--ac); }
+    #alt-custom-input.show  { display: block; }
 
     .modal-submit {
       background: var(--ac); border: none; border-radius: 10px;
@@ -297,7 +314,6 @@
     }
     .bubble pre code { background: none; padding: 0; font-size: 13px; line-height: 1.6; }
 
-    /* Thinking indicator */
     .thinking {
       display: flex; align-items: center; gap: 12px;
       padding: 12px 16px; background: var(--s1); border: 1px solid var(--bd);
@@ -317,7 +333,6 @@
       40%          { transform: scale(1);  opacity: 1; }
     }
 
-    /* ─── Status bar ─── */
     .status {
       display: flex; align-items: center; gap: 10px;
       padding: 4px 20px; background: var(--s1); border-top: 1px solid var(--bd);
@@ -328,7 +343,6 @@
     #status-text { color: var(--mid); }
     .sright { margin-left: auto; }
 
-    /* ─── Input bar ─── */
     .input-bar {
       display: flex; gap: 10px; align-items: flex-end;
       padding: 14px 20px; background: var(--s1);
@@ -435,8 +449,8 @@
               <div class="apt-dd" id="dep-dd"></div>
             </div>
           </div>
-          <div class="fg">
-            <label class="flabel">To</label>
+          <div class="fg" id="arr-fg">
+            <label class="flabel" id="arr-label">To</label>
             <div class="apt-wrap">
               <input class="apt-inp" id="arr" placeholder="Destination…" maxlength="4">
               <div class="apt-name" id="arr-name"></div>
@@ -458,22 +472,23 @@
         </div>
 
         <div class="fg">
-          <label class="flabel">Cruise Altitude</label>
-          <div class="btn-grp">
-            <button class="seg-btn" data-alt="3000">3,000</button>
-            <button class="seg-btn" data-alt="4500">4,500</button>
-            <button class="seg-btn sel" data-alt="6500">6,500</button>
-            <button class="seg-btn" data-alt="8500">8,500</button>
-            <button class="seg-btn" data-alt="10500">10,500</button>
-            <button class="seg-btn" data-alt="12500">12,500</button>
+          <div class="alt-label-row">
+            <label class="flabel">Cruise Altitude</label>
+            <span class="dir-badge" id="dir-badge"></span>
           </div>
+          <div class="btn-grp" id="alt-grp">
+            <!-- Rendered by renderAltButtons() -->
+          </div>
+          <input type="number" id="alt-custom-input" placeholder="Altitude (ft MSL)"
+                 min="500" max="17500" step="500">
         </div>
 
         <div class="fg">
           <label class="flabel">Flight Rules</label>
-          <div class="rules-grp">
+          <div class="rules-grp" id="rules-grp">
             <button class="rules-btn sel" data-rules="VFR">VFR — Solo</button>
             <button class="rules-btn" data-rules="IFR">IFR — With Instructor</button>
+            <button class="rules-btn" data-rules="LOCAL">Local · Pattern</button>
           </div>
         </div>
 
@@ -501,50 +516,50 @@
 <script>
 marked.setOptions({ breaks: true, gfm: true });
 
-/* ─── Airport data ─── */
+/* ─── Airport data (with lat, lon, elev ft MSL) ─── */
 const AIRPORTS = [
-  {icao:'KBDR',name:'Sikorsky Memorial',      city:'Bridgeport, CT'},
-  {icao:'KHVN',name:'Tweed–New Haven',         city:'New Haven, CT'},
-  {icao:'KGON',name:'Groton–New London',       city:'Groton, CT'},
-  {icao:'KHFD',name:'Hartford Brainard',        city:'Hartford, CT'},
-  {icao:'KDXR',name:'Danbury Municipal',        city:'Danbury, CT'},
-  {icao:'KBAF',name:'Westfield–Barnes',         city:'Westfield, MA'},
-  {icao:'KFIT',name:'Fitchburg Municipal',      city:'Fitchburg, MA'},
-  {icao:'KOWD',name:'Norwood Memorial',         city:'Norwood, MA'},
-  {icao:'KBED',name:'Hanscom Field',            city:'Bedford, MA'},
-  {icao:'KBOS',name:'Logan International',      city:'Boston, MA'},
-  {icao:'KPVD',name:'T.F. Green International', city:'Providence, RI'},
-  {icao:'KORH',name:'Worcester Regional',       city:'Worcester, MA'},
-  {icao:'KACK',name:'Nantucket Memorial',       city:'Nantucket, MA'},
-  {icao:'KMVY',name:"Martha's Vineyard",        city:'Vineyard Haven, MA'},
-  {icao:'KHYA',name:'Barnstable Municipal',     city:'Hyannis, MA'},
-  {icao:'KEWB',name:'New Bedford Regional',     city:'New Bedford, MA'},
-  {icao:'KJFK',name:'JFK International',        city:'New York, NY'},
-  {icao:'KLGA',name:'LaGuardia',                city:'New York, NY'},
-  {icao:'KTEB',name:'Teterboro',                city:'Teterboro, NJ'},
-  {icao:'KEWR',name:'Newark Liberty',           city:'Newark, NJ'},
-  {icao:'KCDW',name:'Caldwell Executive',       city:'Caldwell, NJ'},
-  {icao:'KSMQ',name:'Solberg–Hunterdon',        city:'Whitehouse Station, NJ'},
-  {icao:'KBLM',name:'Monmouth Executive',       city:'Belmar, NJ'},
-  {icao:'KPOU',name:'Dutchess County',          city:'Poughkeepsie, NY'},
-  {icao:'KSWF',name:'Stewart International',    city:'Newburgh, NY'},
-  {icao:'KMGJ',name:'Orange County',            city:'Montgomery, NY'},
-  {icao:'KELM',name:'Elmira Corning Regional',  city:'Elmira, NY'},
-  {icao:'KALB',name:'Albany International',     city:'Albany, NY'},
-  {icao:'KSYR',name:'Syracuse Hancock',         city:'Syracuse, NY'},
-  {icao:'KBUF',name:'Buffalo Niagara',          city:'Buffalo, NY'},
-  {icao:'KIAG',name:'Niagara Falls Intl',       city:'Niagara Falls, NY'},
-  {icao:'KPHL',name:'Philadelphia Intl',        city:'Philadelphia, PA'},
-  {icao:'KPIT',name:'Pittsburgh International', city:'Pittsburgh, PA'},
-  {icao:'KDCA',name:'Reagan National',          city:'Washington, DC'},
-  {icao:'KIAD',name:'Dulles International',     city:'Dulles, VA'},
-  {icao:'KBWI',name:'BWI International',        city:'Baltimore, MD'},
-  {icao:'KRIC',name:'Richmond International',   city:'Richmond, VA'},
-  {icao:'KBTV',name:'Burlington International', city:'Burlington, VT'},
-  {icao:'KPSM',name:'Portsmouth Intl',          city:'Portsmouth, NH'},
-  {icao:'KPWM',name:'Portland Jetport',         city:'Portland, ME'},
-  {icao:'KBGR',name:'Bangor International',     city:'Bangor, ME'},
-  {icao:'KBHB',name:'Bar Harbor',               city:'Bar Harbor, ME'},
+  {icao:'KBDR',name:'Sikorsky Memorial',       city:'Bridgeport, CT',          lat:41.163, lon:-73.126, elev:9},
+  {icao:'KHVN',name:'Tweed–New Haven',          city:'New Haven, CT',           lat:41.264, lon:-72.887, elev:12},
+  {icao:'KGON',name:'Groton–New London',        city:'Groton, CT',              lat:41.330, lon:-72.045, elev:11},
+  {icao:'KHFD',name:'Hartford Brainard',         city:'Hartford, CT',            lat:41.737, lon:-72.649, elev:18},
+  {icao:'KDXR',name:'Danbury Municipal',         city:'Danbury, CT',             lat:41.372, lon:-73.482, elev:458},
+  {icao:'KBAF',name:'Westfield–Barnes',          city:'Westfield, MA',           lat:42.158, lon:-72.716, elev:271},
+  {icao:'KFIT',name:'Fitchburg Municipal',       city:'Fitchburg, MA',           lat:42.554, lon:-71.759, elev:348},
+  {icao:'KOWD',name:'Norwood Memorial',          city:'Norwood, MA',             lat:42.191, lon:-71.173, elev:49},
+  {icao:'KBED',name:'Hanscom Field',             city:'Bedford, MA',             lat:42.470, lon:-71.289, elev:133},
+  {icao:'KBOS',name:'Logan International',       city:'Boston, MA',              lat:42.363, lon:-71.006, elev:20},
+  {icao:'KPVD',name:'T.F. Green International',  city:'Providence, RI',          lat:41.724, lon:-71.428, elev:55},
+  {icao:'KORH',name:'Worcester Regional',        city:'Worcester, MA',           lat:42.267, lon:-71.876, elev:1009},
+  {icao:'KACK',name:'Nantucket Memorial',        city:'Nantucket, MA',           lat:41.253, lon:-70.060, elev:48},
+  {icao:'KMVY',name:"Martha's Vineyard",         city:'Vineyard Haven, MA',      lat:41.393, lon:-70.615, elev:67},
+  {icao:'KHYA',name:'Barnstable Municipal',      city:'Hyannis, MA',             lat:41.669, lon:-70.280, elev:54},
+  {icao:'KEWB',name:'New Bedford Regional',      city:'New Bedford, MA',         lat:41.676, lon:-70.957, elev:80},
+  {icao:'KJFK',name:'JFK International',         city:'New York, NY',            lat:40.640, lon:-73.779, elev:13},
+  {icao:'KLGA',name:'LaGuardia',                 city:'New York, NY',            lat:40.777, lon:-73.873, elev:21},
+  {icao:'KTEB',name:'Teterboro',                 city:'Teterboro, NJ',           lat:40.850, lon:-74.061, elev:9},
+  {icao:'KEWR',name:'Newark Liberty',            city:'Newark, NJ',              lat:40.693, lon:-74.169, elev:18},
+  {icao:'KCDW',name:'Caldwell Executive',        city:'Caldwell, NJ',            lat:40.875, lon:-74.282, elev:108},
+  {icao:'KSMQ',name:'Solberg–Hunterdon',         city:'Whitehouse Station, NJ',  lat:40.577, lon:-74.732, elev:105},
+  {icao:'KBLM',name:'Monmouth Executive',        city:'Belmar, NJ',              lat:40.187, lon:-74.125, elev:153},
+  {icao:'KPOU',name:'Dutchess County',           city:'Poughkeepsie, NY',        lat:41.627, lon:-73.884, elev:165},
+  {icao:'KSWF',name:'Stewart International',     city:'Newburgh, NY',            lat:41.504, lon:-74.105, elev:491},
+  {icao:'KMGJ',name:'Orange County',             city:'Montgomery, NY',          lat:41.510, lon:-74.265, elev:364},
+  {icao:'KELM',name:'Elmira Corning Regional',   city:'Elmira, NY',              lat:42.160, lon:-76.891, elev:954},
+  {icao:'KALB',name:'Albany International',      city:'Albany, NY',              lat:42.748, lon:-73.802, elev:285},
+  {icao:'KSYR',name:'Syracuse Hancock',          city:'Syracuse, NY',            lat:43.111, lon:-76.106, elev:421},
+  {icao:'KBUF',name:'Buffalo Niagara',           city:'Buffalo, NY',             lat:42.940, lon:-78.732, elev:724},
+  {icao:'KIAG',name:'Niagara Falls Intl',        city:'Niagara Falls, NY',       lat:43.107, lon:-79.038, elev:589},
+  {icao:'KPHL',name:'Philadelphia Intl',         city:'Philadelphia, PA',        lat:39.872, lon:-75.241, elev:36},
+  {icao:'KPIT',name:'Pittsburgh International',  city:'Pittsburgh, PA',          lat:40.492, lon:-80.233, elev:1203},
+  {icao:'KDCA',name:'Reagan National',           city:'Washington, DC',          lat:38.852, lon:-77.038, elev:15},
+  {icao:'KIAD',name:'Dulles International',      city:'Dulles, VA',              lat:38.944, lon:-77.456, elev:313},
+  {icao:'KBWI',name:'BWI International',         city:'Baltimore, MD',           lat:39.175, lon:-76.668, elev:146},
+  {icao:'KRIC',name:'Richmond International',    city:'Richmond, VA',            lat:37.505, lon:-77.320, elev:167},
+  {icao:'KBTV',name:'Burlington International',  city:'Burlington, VT',          lat:44.472, lon:-73.153, elev:335},
+  {icao:'KPSM',name:'Portsmouth Intl',           city:'Portsmouth, NH',          lat:43.078, lon:-70.823, elev:100},
+  {icao:'KPWM',name:'Portland Jetport',          city:'Portland, ME',            lat:43.646, lon:-70.309, elev:76},
+  {icao:'KBGR',name:'Bangor International',      city:'Bangor, ME',              lat:44.807, lon:-68.828, elev:192},
+  {icao:'KBHB',name:'Bar Harbor',                city:'Bar Harbor, ME',          lat:44.450, lon:-68.362, elev:84},
 ];
 
 function aptSearch(q) {
@@ -570,6 +585,118 @@ let aircraftList = [], acSelIdx = -1, isWaiting = false;
 let selTime = 'now', selAlt = '6500', selRules = 'VFR';
 
 fetch('/aircraft').then(r => r.json()).then(l => { aircraftList = l; }).catch(() => {});
+
+/* ─── Bearing calculation ─── */
+function calcBearing(lat1, lon1, lat2, lon2) {
+  const R = Math.PI / 180;
+  const φ1 = lat1 * R, φ2 = lat2 * R, Δλ = (lon2 - lon1) * R;
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+/* ─── Altitude options based on rules + bearing ─── */
+function getAltOptions(rules, depA, arrA) {
+  if (rules === 'LOCAL') {
+    const elev = depA ? depA.elev : 0;
+    const tpa  = Math.round((elev + 1000) / 100) * 100;
+    return [{ alt: tpa, label: `TPA · ${tpa.toLocaleString()}` }];
+  }
+
+  const bearing = (depA && arrA) ? calcBearing(depA.lat, depA.lon, arrA.lat, arrA.lon) : null;
+  const east = bearing !== null && bearing < 180;
+  const west = bearing !== null && bearing >= 180;
+
+  if (rules === 'VFR') {
+    let alts;
+    if (east)       alts = [3500, 5500, 7500, 9500, 11500];   // odd + 500
+    else if (west)  alts = [4500, 6500, 8500, 10500, 12500];  // even + 500
+    else            alts = [3000, 4500, 6500, 8500, 10500, 12500]; // no direction
+    return [...alts.map(a => ({ alt: a, label: a.toLocaleString() })),
+             { alt: 'custom', label: 'Custom…' }];
+  }
+
+  if (rules === 'IFR') {
+    let alts;
+    if (west) alts = [4000, 6000, 8000, 10000, 12000]; // even
+    else      alts = [3000, 5000, 7000, 9000, 11000];  // odd (default + eastbound)
+    return [...alts.map(a => ({ alt: a, label: a.toLocaleString() })),
+             { alt: 'custom', label: 'Custom…' }];
+  }
+
+  return [];
+}
+
+/* ─── Render altitude buttons dynamically ─── */
+function renderAltButtons() {
+  const depVal = document.getElementById('dep').value.trim().toUpperCase();
+  const arrVal = document.getElementById('arr').value.trim().toUpperCase();
+  const depA   = aptByIcao(depVal);
+  const arrA   = aptByIcao(arrVal);
+
+  // Direction badge
+  const badge = document.getElementById('dir-badge');
+  if (depA && arrA && selRules !== 'LOCAL') {
+    const brg = calcBearing(depA.lat, depA.lon, arrA.lat, arrA.lon);
+    const dir = brg < 180 ? 'EASTBOUND' : 'WESTBOUND';
+    const arrow = brg < 180 ? '↗' : '↙';
+    badge.textContent = `${Math.round(brg)}° ${arrow} ${dir}`;
+    badge.classList.add('show');
+  } else {
+    badge.textContent = '';
+    badge.classList.remove('show');
+  }
+
+  const options = getAltOptions(selRules, depA, arrA);
+  const validAlts = options.map(o => String(o.alt));
+
+  // Keep selAlt if still valid, otherwise pick sensible default
+  if (!validAlts.includes(String(selAlt))) {
+    if (selRules === 'LOCAL') {
+      selAlt = String(options[0].alt);
+    } else {
+      // Pick middle non-custom option
+      const nonCustom = options.filter(o => o.alt !== 'custom');
+      const mid = nonCustom[Math.floor(nonCustom.length / 2)];
+      selAlt = mid ? String(mid.alt) : String(options[0].alt);
+    }
+  }
+
+  const grp = document.getElementById('alt-grp');
+  grp.innerHTML = options.map(o =>
+    `<button class="seg-btn${String(o.alt) === String(selAlt) ? ' sel' : ''}" data-alt="${o.alt}">${o.label}</button>`
+  ).join('');
+
+  // Re-attach click handlers
+  grp.querySelectorAll('[data-alt]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      grp.querySelectorAll('[data-alt]').forEach(b => b.classList.remove('sel'));
+      btn.classList.add('sel');
+      selAlt = btn.dataset.alt;
+      const ci = document.getElementById('alt-custom-input');
+      if (selAlt === 'custom') { ci.classList.add('show'); ci.focus(); }
+      else                     { ci.classList.remove('show'); }
+    });
+  });
+
+  // Hide custom input if not selected
+  if (selAlt !== 'custom') {
+    document.getElementById('alt-custom-input').classList.remove('show');
+  }
+}
+
+/* ─── Local/Pattern mode: dim the "To" field ─── */
+function setLocalMode(on) {
+  const fg    = document.getElementById('arr-fg');
+  const label = document.getElementById('arr-label');
+  if (on) {
+    fg.classList.add('fg-dimmed');
+    label.textContent = 'To (optional)';
+  } else {
+    fg.classList.remove('fg-dimmed');
+    label.textContent = 'To';
+  }
+}
 
 /* ─── Aircraft autocomplete (topbar) ─── */
 acInput.addEventListener('input', () => {
@@ -613,6 +740,7 @@ function wireAptInput(inputEl, ddEl, nameEl) {
     } else {
       nameEl.textContent = '';
     }
+    renderAltButtons();
     const results = aptSearch(val);
     if (!results.length || exact) { ddEl.classList.remove('open'); ddEl.innerHTML = ''; return; }
     ddEl.innerHTML = results.map(a =>
@@ -632,6 +760,7 @@ function wireAptInput(inputEl, ddEl, nameEl) {
     nameEl.textContent = apt ? `${apt.name} · ${apt.city}` : '';
     nameEl.style.color = 'var(--green)';
     ddEl.classList.remove('open'); ddEl.innerHTML = '';
+    renderAltButtons();
   });
   document.addEventListener('click', e => {
     if (!inputEl.closest('.apt-wrap').contains(e.target)) ddEl.classList.remove('open');
@@ -640,7 +769,7 @@ function wireAptInput(inputEl, ddEl, nameEl) {
 wireAptInput(document.getElementById('dep'), document.getElementById('dep-dd'), document.getElementById('dep-name'));
 wireAptInput(document.getElementById('arr'), document.getElementById('arr-dd'), document.getElementById('arr-name'));
 
-/* Time buttons */
+/* ─── Time buttons ─── */
 document.querySelectorAll('[data-time]').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('[data-time]').forEach(b => b.classList.remove('sel'));
@@ -656,23 +785,18 @@ document.querySelectorAll('[data-time]').forEach(btn => {
   });
 });
 
-/* Altitude buttons */
-document.querySelectorAll('[data-alt]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('[data-alt]').forEach(b => b.classList.remove('sel'));
-    btn.classList.add('sel'); selAlt = btn.dataset.alt;
-  });
-});
-
-/* Rules buttons */
+/* ─── Rules buttons ─── */
 document.querySelectorAll('[data-rules]').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('[data-rules]').forEach(b => b.classList.remove('sel'));
-    btn.classList.add('sel'); selRules = btn.dataset.rules;
+    btn.classList.add('sel');
+    selRules = btn.dataset.rules;
+    setLocalMode(selRules === 'LOCAL');
+    renderAltButtons();
   });
 });
 
-/* Modal open / close */
+/* ─── Modal open / close ─── */
 function openModal() { document.getElementById('modal-bg').classList.add('open'); document.getElementById('dep').focus(); }
 function closeModal() { document.getElementById('modal-bg').classList.remove('open'); }
 
@@ -681,17 +805,20 @@ document.getElementById('modal-x').addEventListener('click', closeModal);
 document.getElementById('modal-bg').addEventListener('click', e => { if (e.target === document.getElementById('modal-bg')) closeModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
-/* Modal submit */
+/* ─── Modal submit ─── */
 document.getElementById('modal-submit').addEventListener('click', () => {
   const dep = (document.getElementById('dep').value.trim() || 'KBDR').toUpperCase();
   const arr = document.getElementById('arr').value.trim().toUpperCase();
-  if (!arr) { document.getElementById('arr').focus(); return; }
+
+  if (selRules !== 'LOCAL' && !arr) {
+    document.getElementById('arr').focus(); return;
+  }
 
   let timeStr;
-  if      (selTime === 'now')    timeStr = 'departing now';
-  else if (selTime === '1hr')    timeStr = 'departing in approximately 1 hour';
-  else if (selTime === '2hr')    timeStr = 'departing in approximately 2 hours';
-  else if (selTime === '3hr')    timeStr = 'departing in approximately 3 hours';
+  if      (selTime === 'now') timeStr = 'departing now';
+  else if (selTime === '1hr') timeStr = 'departing in approximately 1 hour';
+  else if (selTime === '2hr') timeStr = 'departing in approximately 2 hours';
+  else if (selTime === '3hr') timeStr = 'departing in approximately 3 hours';
   else {
     const cv = document.getElementById('modal-time-custom').value;
     timeStr = cv
@@ -699,14 +826,26 @@ document.getElementById('modal-submit').addEventListener('click', () => {
       : 'departing today';
   }
 
-  const altFmt  = parseInt(selAlt).toLocaleString();
-  const rulesTxt = selRules === 'IFR' ? 'IFR with a flight instructor' : 'VFR solo';
-  const acft     = acInput.value.trim() || '2008 Diamond DA40 XLS';
+  let altFmt;
+  if (selAlt === 'custom') {
+    const cv = parseInt(document.getElementById('alt-custom-input').value || '6500');
+    altFmt = cv.toLocaleString();
+  } else {
+    altFmt = parseInt(selAlt).toLocaleString();
+  }
 
-  saveRoute(dep, arr);
+  const acft = acInput.value.trim() || '2008 Diamond DA40 XLS';
+  let message;
+
+  if (selRules === 'LOCAL') {
+    message = `I'd like a local area weather briefing for pattern work and local flight around ${dep}, ${timeStr}, at traffic pattern altitude (approximately ${altFmt} feet MSL), VFR, in a ${acft}.`;
+  } else {
+    const rulesTxt = selRules === 'IFR' ? 'IFR with a flight instructor' : 'VFR solo';
+    saveRoute(dep, arr);
+    message = `I'd like a standard weather briefing for a flight from ${dep} to ${arr}, ${timeStr}, cruising at ${altFmt} feet MSL, ${rulesTxt}, in a ${acft}.`;
+  }
+
   closeModal();
-
-  const message = `I'd like a standard weather briefing for a flight from ${dep} to ${arr}, ${timeStr}, cruising at ${altFmt} feet MSL, ${rulesTxt}, in a ${acft}.`;
   msgInput.value = message;
   msgInput.style.height = 'auto';
   msgInput.style.height = Math.min(msgInput.scrollHeight, 140) + 'px';
@@ -754,7 +893,7 @@ function showWelcome() {
         <li><strong>Planned departure time</strong></li>
         <li><strong>Cruise altitude</strong></li>
         <li><strong>Aircraft</strong> — defaults to 2008 Diamond DA40 XLS</li>
-        <li><strong>Flight rules</strong> — VFR solo or IFR with instructor</li>
+        <li><strong>Flight rules</strong> — VFR solo, IFR with instructor, or local pattern</li>
       </ul>
     </div>
     <div class="wc-cta">
@@ -796,25 +935,23 @@ function showChips() {
     el.addEventListener('click', () => {
       if (label === 'Area forecast') {
         msgInput.value = 'What is the current area forecast and synopsis for Connecticut and New York?';
-        autoHeight();
-        msgInput.focus();
+        autoHeight(); msgInput.focus();
       } else if (label === 'Weekend planning') {
         msgInput.value = 'I am planning a flight this weekend. Can you give me an extended outlook for the weather pattern?';
-        autoHeight();
-        msgInput.focus();
+        autoHeight(); msgInput.focus();
       } else {
-        // Route chip — pre-fill modal
         const parts = raw.split('→');
         if (parts.length === 2) {
-          const dep = parts[0], arr = parts[1];
-          document.getElementById('dep').value = dep;
-          document.getElementById('arr').value = arr;
-          const da = aptByIcao(dep), aa = aptByIcao(arr);
+          const depV = parts[0], arrV = parts[1];
+          document.getElementById('dep').value = depV;
+          document.getElementById('arr').value = arrV;
+          const da = aptByIcao(depV), aa = aptByIcao(arrV);
           const dn = document.getElementById('dep-name'), an = document.getElementById('arr-name');
           dn.textContent = da ? `${da.name} · ${da.city}` : '';
           dn.style.color = da ? 'var(--green)' : '';
           an.textContent = aa ? `${aa.name} · ${aa.city}` : '';
           an.style.color = aa ? 'var(--green)' : '';
+          renderAltButtons();
           openModal();
         }
       }
@@ -850,12 +987,9 @@ async function sendMessage() {
   if (isWaiting) return;
   const text = msgInput.value.trim(); if (!text) return;
 
-  // Remove chips on first send
   chatEl.querySelectorAll('.chips').forEach(el => el.remove());
-
   msgInput.value = ''; msgInput.style.height = 'auto';
 
-  // User bubble
   const uw = document.createElement('div'); uw.className = 'msg user';
   const ul = document.createElement('div'); ul.className = 'msg-who'; ul.textContent = 'Pilot';
   const ub = document.createElement('div'); ub.className = 'bubble'; ub.textContent = text;
@@ -863,7 +997,6 @@ async function sendMessage() {
 
   isWaiting = true; btnSend.disabled = true; statusEl.textContent = 'Connecting…';
 
-  // Thinking indicator
   const tw  = document.createElement('div'); tw.className = 'msg briefer';
   const twl = document.createElement('div'); twl.className = 'msg-who'; twl.textContent = 'Flight Watch';
   const tb  = document.createElement('div'); tb.className = 'thinking';
@@ -986,6 +1119,7 @@ function emailBriefing() {
 }
 
 /* ─── Init ─── */
+renderAltButtons();
 showWelcome();
 </script>
 </body>
