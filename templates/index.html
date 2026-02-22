@@ -9,21 +9,24 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:           #0d1117;
-      --surface:      #161b27;
-      --surface-up:   #1c2336;
-      --border:       #252f46;
-      --border-hi:    #2e3d58;
-      --accent:       #5b8dee;
-      --accent-hover: #4a7ce0;
-      --accent-glow:  rgba(91, 141, 238, 0.14);
-      --text:         #e2eaf8;
-      --text-dim:     #7b8eab;   /* lightened from #4e5c75 for readability */
-      --text-mid:     #9daec8;
-      --mono:         #7ab8f5;
-      --user-bg:      #192241;
-      --user-border:  #21305c;
-      --warn:         #e8973c;
+      --bg:       #0d1117;
+      --s1:       #161b27;
+      --s2:       #1c2336;
+      --s3:       #222b40;
+      --bd:       #252f46;
+      --bd2:      #2e3d58;
+      --ac:       #5b8dee;
+      --ac2:      #4a7ce0;
+      --glow:     rgba(91,141,238,0.14);
+      --text:     #e2eaf8;
+      --muted:    #7b8eab;
+      --mid:      #9daec8;
+      --mono:     #7ab8f5;
+      --ubg:      #192241;
+      --ubd:      #21305c;
+      --warn:     #e89740;
+      --green:    #4cba88;
+      --r:        10px;
     }
 
     html, body {
@@ -31,405 +34,349 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
       background: var(--bg);
       color: var(--text);
-      font-size: 16px;          /* was 14.5px — better base for readability */
+      font-size: 16px;
       line-height: 1.72;
     }
 
-    /* ── Shell ── */
     .app {
       display: flex;
       flex-direction: column;
-      height: 100dvh;           /* dvh handles mobile browser chrome correctly */
-      max-width: 900px;
+      height: 100dvh;
+      max-width: 920px;
       margin: 0 auto;
     }
 
-    /* ── Topbar ── */
+    /* ─── Topbar ─── */
     .topbar {
       display: flex;
       align-items: center;
-      flex-wrap: wrap;          /* allows aircraft field to wrap on mobile */
-      gap: 10px 14px;
+      flex-wrap: wrap;
+      gap: 8px 12px;
       padding: 10px 20px;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
+      background: var(--s1);
+      border-bottom: 1px solid var(--bd);
       flex-shrink: 0;
     }
-
     .logo { line-height: 1.2; }
-    .logo-name {
-      font-size: 14px;
-      font-weight: 700;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-      color: var(--text);
-    }
-    .logo-sub {
-      font-size: 10px;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      display: block;
-    }
+    .logo-name { font-size: 14px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; }
+    .logo-sub  { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); display: block; }
+    .tb-sep    { width: 1px; height: 24px; background: var(--bd2); flex-shrink: 0; }
+    .tb-space  { flex: 1; }
 
-    .topbar-divider {
-      width: 1px;
-      height: 26px;
-      background: var(--border-hi);
-      flex-shrink: 0;
-    }
-
-    /* Aircraft field */
-    .acft-wrap {
-      position: relative;
-      flex: 1;
-      min-width: 150px;
-      max-width: 280px;
-    }
-    .acft-tag {
-      position: absolute;
-      left: 10px;
-      top: 50%;
-      transform: translateY(-50%);
-      font-size: 9px;
-      font-weight: 700;
-      letter-spacing: 1.5px;
-      color: var(--text-dim);
-      pointer-events: none;
-      z-index: 1;
+    /* Aircraft autocomplete */
+    .acft-wrap { position: relative; flex: 1; min-width: 140px; max-width: 260px; }
+    .acft-tag  {
+      position: absolute; left: 9px; top: 50%; transform: translateY(-50%);
+      font-size: 9px; font-weight: 700; letter-spacing: 1.5px;
+      color: var(--muted); pointer-events: none; z-index: 1;
     }
     #aircraft-input {
-      width: 100%;
-      background: var(--surface-up);
-      border: 1px solid var(--border);
-      border-radius: 7px;
-      color: var(--text);
-      font-family: inherit;
-      font-size: 13px;
-      padding: 8px 10px 8px 40px;
-      outline: none;
-      transition: border-color 0.15s, box-shadow 0.15s;
-      -webkit-appearance: none;
+      width: 100%; background: var(--s2); border: 1px solid var(--bd);
+      border-radius: 7px; color: var(--text); font-family: inherit;
+      font-size: 13px; padding: 7px 9px 7px 38px; outline: none;
+      transition: border-color .15s, box-shadow .15s; -webkit-appearance: none;
     }
-    #aircraft-input:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-glow);
+    #aircraft-input:focus { border-color: var(--ac); box-shadow: 0 0 0 3px var(--glow); }
+    .ac-list {
+      position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+      background: var(--s1); border: 1px solid var(--bd2); border-radius: 7px;
+      max-height: 180px; overflow-y: auto; z-index: 300; display: none;
+      box-shadow: 0 8px 32px rgba(0,0,0,.55);
     }
-
-    .autocomplete-list {
-      position: absolute;
-      top: calc(100% + 4px);
-      left: 0; right: 0;
-      background: var(--surface);
-      border: 1px solid var(--border-hi);
-      border-radius: 7px;
-      max-height: 200px;
-      overflow-y: auto;
-      z-index: 200;
-      display: none;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.55);
-    }
-    .autocomplete-list.visible { display: block; }
-    .autocomplete-item {
-      padding: 10px 14px;
-      font-size: 13px;
-      color: var(--text);
-      cursor: pointer;
-      border-bottom: 1px solid var(--border);
-    }
-    .autocomplete-item:last-child { border-bottom: none; }
-    .autocomplete-item:hover,
-    .autocomplete-item.selected { background: var(--accent-glow); color: var(--accent); }
-    .autocomplete-list::-webkit-scrollbar { width: 3px; }
-    .autocomplete-list::-webkit-scrollbar-thumb { background: var(--border-hi); }
-
-    .topbar-spacer { flex: 1; }
+    .ac-list.open { display: block; }
+    .ac-item { padding: 9px 13px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--bd); }
+    .ac-item:last-child { border-bottom: none; }
+    .ac-item:hover, .ac-item.sel { background: var(--glow); color: var(--ac); }
 
     /* Action buttons */
-    .topbar-actions { display: flex; gap: 5px; flex-shrink: 0; }
-    .btn-action {
-      background: transparent;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text-dim);
-      cursor: pointer;
-      font-family: inherit;
-      font-size: 12px;
-      letter-spacing: 0.2px;
-      padding: 7px 13px;
-      transition: border-color 0.15s, color 0.15s;
-      white-space: nowrap;
-      min-height: 34px;
-      display: flex;
-      align-items: center;
-      gap: 5px;
+    .tb-actions { display: flex; gap: 5px; flex-shrink: 0; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      border-radius: 7px; cursor: pointer; font-family: inherit;
+      transition: background .15s, border-color .15s, color .15s, transform .1s;
+      white-space: nowrap; border: none; -webkit-appearance: none;
     }
-    .btn-action:hover { border-color: var(--border-hi); color: var(--text-mid); }
-    .btn-action.new:hover { border-color: var(--warn); color: var(--warn); }
-    .btn-icon { font-size: 14px; line-height: 1; }
-
-    /* ── Chat ── */
-    .chat-area {
-      flex: 1;
-      overflow-y: auto;
-      padding: 28px 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-      scroll-behavior: smooth;
-      overscroll-behavior: contain;
+    .btn-ghost {
+      background: transparent; border: 1px solid var(--bd);
+      color: var(--muted); font-size: 12px; padding: 7px 12px; min-height: 34px;
     }
-    .chat-area::-webkit-scrollbar { width: 5px; }
-    .chat-area::-webkit-scrollbar-track { background: transparent; }
-    .chat-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .btn-ghost:hover { border-color: var(--bd2); color: var(--mid); }
+    .btn-ghost.danger:hover { border-color: var(--warn); color: var(--warn); }
+    .btn-primary {
+      background: var(--ac); color: #fff;
+      font-size: 13px; font-weight: 600; padding: 7px 15px; min-height: 34px;
+    }
+    .btn-primary:hover  { background: var(--ac2); }
+    .btn-primary:active { transform: scale(.97); }
+    .bic { font-size: 15px; line-height: 1; }
 
-    /* Messages */
-    .message { display: flex; flex-direction: column; max-width: 82%; }
-    .message.user    { align-self: flex-end;   align-items: flex-end;   }
-    .message.briefer { align-self: flex-start; align-items: flex-start; max-width: 92%; }
+    /* ─── Quick Brief Modal ─── */
+    .modal-bg {
+      display: none; position: fixed; inset: 0;
+      background: rgba(5,8,18,.78);
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      z-index: 500; align-items: center; justify-content: center; padding: 16px;
+    }
+    .modal-bg.open { display: flex; }
+    .modal {
+      background: var(--s1); border: 1px solid var(--bd2); border-radius: 16px;
+      width: 100%; max-width: 520px; max-height: 92vh; overflow-y: auto;
+      box-shadow: 0 24px 64px rgba(0,0,0,.65);
+      animation: mIn .2s ease;
+    }
+    @keyframes mIn { from { opacity: 0; transform: translateY(16px) scale(.97); } to { opacity: 1; transform: none; } }
+    .modal-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 24px 0;
+    }
+    .modal-title { font-size: 16px; font-weight: 700; }
+    .modal-x {
+      background: none; border: none; color: var(--muted); font-size: 20px;
+      cursor: pointer; line-height: 1; padding: 4px 6px; border-radius: 5px;
+      transition: color .15s;
+    }
+    .modal-x:hover { color: var(--text); }
+    .modal-body { padding: 18px 24px 24px; display: flex; flex-direction: column; gap: 16px; }
 
-    .msg-label {
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 1.2px;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      margin-bottom: 5px;
-      padding: 0 3px;
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .fg       { display: flex; flex-direction: column; gap: 6px; }
+    .flabel   { font-size: 10px; font-weight: 700; letter-spacing: 1.3px; text-transform: uppercase; color: var(--muted); }
+
+    /* Airport fields */
+    .apt-wrap { position: relative; }
+    .apt-inp {
+      width: 100%; background: var(--s2); border: 1px solid var(--bd);
+      border-radius: 8px; color: var(--text); font-family: inherit;
+      font-size: 15px; font-weight: 700; letter-spacing: 1px;
+      padding: 10px 12px; outline: none; text-transform: uppercase;
+      transition: border-color .15s, box-shadow .15s; -webkit-appearance: none;
+    }
+    .apt-inp::placeholder { font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--muted); font-size: 13px; }
+    .apt-inp:focus { border-color: var(--ac); box-shadow: 0 0 0 3px var(--glow); }
+    .apt-name { font-size: 11px; color: var(--mid); margin-top: 4px; min-height: 15px; line-height: 1.3; }
+    .apt-dd {
+      position: absolute; top: calc(100% + 2px); left: 0; right: 0;
+      background: var(--s1); border: 1px solid var(--bd2); border-radius: 8px;
+      z-index: 400; display: none; box-shadow: 0 8px 32px rgba(0,0,0,.55); overflow: hidden;
+    }
+    .apt-dd.open { display: block; }
+    .apt-opt { padding: 10px 14px; cursor: pointer; border-bottom: 1px solid var(--bd); }
+    .apt-opt:last-child { border-bottom: none; }
+    .apt-opt:hover, .apt-opt.sel { background: var(--glow); }
+    .apt-icao { font-size: 13px; font-weight: 700; color: var(--ac); }
+    .apt-info { font-size: 11px; color: var(--mid); }
+
+    /* Button groups */
+    .btn-grp { display: flex; gap: 6px; flex-wrap: wrap; }
+    .seg-btn {
+      background: var(--s2); border: 1px solid var(--bd); border-radius: 6px;
+      color: var(--mid); cursor: pointer; font-family: inherit; font-size: 12px;
+      padding: 7px 12px; transition: background .15s, border-color .15s, color .15s;
+    }
+    .seg-btn:hover { border-color: var(--bd2); color: var(--text); }
+    .seg-btn.sel   { background: var(--glow); border-color: var(--ac); color: var(--ac); }
+
+    .rules-grp { display: flex; gap: 8px; }
+    .rules-btn {
+      flex: 1; background: var(--s2); border: 1px solid var(--bd); border-radius: 8px;
+      color: var(--mid); cursor: pointer; font-family: inherit;
+      font-size: 13px; font-weight: 600; padding: 10px;
+      text-align: center; transition: background .15s, border-color .15s, color .15s;
+    }
+    .rules-btn:hover { border-color: var(--bd2); color: var(--text); }
+    .rules-btn.sel   { background: var(--glow); border-color: var(--ac); color: var(--ac); }
+
+    #modal-time-custom {
+      display: none; width: 100%; background: var(--s2); border: 1px solid var(--bd);
+      border-radius: 8px; color: var(--text); font-family: inherit;
+      font-size: 14px; padding: 9px 12px; outline: none; margin-top: 6px;
+      transition: border-color .15s; -webkit-appearance: none;
+    }
+    #modal-time-custom:focus { border-color: var(--ac); }
+    #modal-time-custom.show  { display: block; }
+
+    .modal-submit {
+      background: var(--ac); border: none; border-radius: 10px;
+      color: #fff; cursor: pointer; font-family: inherit;
+      font-size: 15px; font-weight: 700; padding: 13px;
+      width: 100%; min-height: 48px;
+      transition: background .15s, transform .1s; -webkit-appearance: none;
+    }
+    .modal-submit:hover  { background: var(--ac2); }
+    .modal-submit:active { transform: scale(.98); }
+
+    /* ─── Chat ─── */
+    .chat {
+      flex: 1; overflow-y: auto; padding: 24px 22px;
+      display: flex; flex-direction: column; gap: 20px;
+      scroll-behavior: smooth; overscroll-behavior: contain;
+    }
+    .chat::-webkit-scrollbar { width: 4px; }
+    .chat::-webkit-scrollbar-thumb { background: var(--bd); border-radius: 2px; }
+
+    .msg         { display: flex; flex-direction: column; max-width: 82%; }
+    .msg.user    { align-self: flex-end;   align-items: flex-end;   }
+    .msg.briefer { align-self: flex-start; align-items: flex-start; max-width: 92%; }
+
+    .msg-who {
+      font-size: 10px; font-weight: 600; letter-spacing: 1.2px;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 5px; padding: 0 3px;
     }
 
-    .msg-bubble {
-      padding: 14px 18px;
-      border-radius: 12px;
-      line-height: 1.72;
-      word-break: break-word;
-      font-size: 15.5px;       /* slightly larger than base for readability in bubbles */
+    .bubble {
+      padding: 14px 18px; border-radius: 14px;
+      line-height: 1.72; word-break: break-word; font-size: 15.5px;
+      box-shadow: 0 1px 6px rgba(0,0,0,.25);
     }
-
-    .message.user .msg-bubble {
-      background: var(--user-bg);
-      border: 1px solid var(--user-border);
+    .msg.user .bubble {
+      background: var(--ubg); border: 1px solid var(--ubd);
       border-bottom-right-radius: 4px;
-      color: var(--text);
     }
-
-    .message.briefer .msg-bubble {
-      background: var(--surface);
-      border: 1px solid var(--border);
+    .msg.briefer .bubble {
+      background: var(--s1); border: 1px solid var(--bd);
       border-bottom-left-radius: 4px;
     }
 
-    /* Markdown typography — briefer messages */
-    .msg-bubble strong { color: var(--accent); font-weight: 600; }
-    .msg-bubble em     { color: var(--warn); font-style: normal; }
-
-    .msg-bubble h1, .msg-bubble h2, .msg-bubble h3 {
-      color: var(--accent);
-      font-weight: 700;
-      margin: 16px 0 6px;
-      line-height: 1.3;
+    /* ─── Welcome card ─── */
+    .welcome-card {
+      background: linear-gradient(135deg, #172038 0%, #1b2845 100%);
+      border: 1px solid var(--bd2); border-radius: 16px;
+      padding: 22px 24px 18px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.35), inset 0 1px 0 rgba(91,141,238,.08);
     }
-    .msg-bubble h1 { font-size: 17px; }   /* headers LARGER than body */
-    .msg-bubble h2 { font-size: 16px; }
-    .msg-bubble h3 { font-size: 15px; }
-
-    .msg-bubble h1:first-child,
-    .msg-bubble h2:first-child,
-    .msg-bubble h3:first-child { margin-top: 0; }
-
-    .msg-bubble ul, .msg-bubble ol {
-      padding-left: 20px;
-      margin: 6px 0;
+    .wc-header { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+    .wc-icon   { font-size: 30px; line-height: 1; }
+    .wc-title  { font-size: 17px; font-weight: 700; }
+    .wc-sub    { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .wc-body   { font-size: 15px; color: var(--mid); line-height: 1.72; }
+    .wc-body ul { padding-left: 18px; margin: 8px 0; }
+    .wc-body li { margin: 3px 0; }
+    .wc-body li strong { color: var(--text); }
+    .wc-cta {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--bd);
     }
-    .msg-bubble li { margin: 4px 0; }
-    .msg-bubble p  { margin: 6px 0; }
-    .msg-bubble p:first-child { margin-top: 0; }
-    .msg-bubble p:last-child  { margin-bottom: 0; }
+    .wc-hint { font-size: 12.5px; color: var(--muted); }
 
-    .msg-bubble hr {
-      border: none;
-      border-top: 1px solid var(--border);
-      margin: 12px 0;
+    /* Suggestion chips */
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 3px; }
+    .chip {
+      background: var(--s2); border: 1px solid var(--bd2); border-radius: 20px;
+      color: var(--mid); cursor: pointer; font-family: inherit; font-size: 13px;
+      padding: 6px 14px;
+      transition: background .15s, border-color .15s, color .15s;
+      white-space: nowrap;
     }
+    .chip:hover { background: var(--glow); border-color: var(--ac); color: var(--ac); }
 
-    /* Code — most important readability fix */
-    .msg-bubble pre {
-      background: #080d18;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 12px 14px;
-      overflow-x: auto;
-      margin: 10px 0;
+    /* Markdown in bubbles */
+    .bubble strong { color: var(--ac); font-weight: 600; }
+    .bubble em     { color: var(--warn); font-style: normal; }
+    .bubble h1, .bubble h2, .bubble h3 {
+      color: var(--ac); font-weight: 700; margin: 14px 0 5px; line-height: 1.3;
+    }
+    .bubble h1 { font-size: 17px; }
+    .bubble h2 { font-size: 16px; }
+    .bubble h3 { font-size: 15px; }
+    .bubble h1:first-child, .bubble h2:first-child, .bubble h3:first-child { margin-top: 0; }
+    .bubble ul, .bubble ol { padding-left: 20px; margin: 6px 0; }
+    .bubble li { margin: 4px 0; }
+    .bubble p  { margin: 6px 0; }
+    .bubble p:first-child { margin-top: 0; }
+    .bubble p:last-child  { margin-bottom: 0; }
+    .bubble hr { border: none; border-top: 1px solid var(--bd); margin: 12px 0; }
+    .bubble pre {
+      background: #080d18; border: 1px solid var(--bd); border-radius: 7px;
+      padding: 12px 14px; overflow-x: auto; margin: 10px 0;
       -webkit-overflow-scrolling: touch;
     }
-    .msg-bubble code {
-      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Courier New', monospace;
-      font-size: 13.5px;       /* was 12px — much more readable */
-      color: var(--mono);
-      background: rgba(0,0,0,0.28);
-      padding: 2px 6px;
-      border-radius: 4px;
-    }
-    .msg-bubble pre code {
-      background: none;
-      padding: 0;
-      font-size: 13px;         /* was 11.5px */
-      line-height: 1.6;
-    }
-
-    /* Thinking / status indicator */
-    .thinking-bubble {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 16px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      border-bottom-left-radius: 4px;
-      color: var(--text-mid);
-      font-size: 14px;
-      font-style: italic;
-    }
-    .thinking-dots { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
-    .thinking-dots span {
-      display: inline-block;
-      width: 5px; height: 5px;
-      border-radius: 50%;
-      background: var(--accent);
-      animation: pulse 1.4s ease-in-out infinite;
-    }
-    .thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
-    .thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
-    @keyframes pulse {
-      0%, 80%, 100% { transform: scale(0.5); opacity: 0.25; }
-      40%           { transform: scale(1);   opacity: 1; }
-    }
-
-    /* ── Status bar ── */
-    .status-bar {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 4px 20px;
-      background: var(--surface);
-      border-top: 1px solid var(--border);
-      font-size: 11px;
+    .bubble code {
       font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
-      color: var(--text-dim);
-      letter-spacing: 0.3px;
-      flex-shrink: 0;
+      font-size: 13.5px; color: var(--mono);
+      background: rgba(0,0,0,.28); padding: 2px 6px; border-radius: 4px;
     }
-    .status-dot {
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      background: var(--accent);
-      flex-shrink: 0;
-    }
-    #status-text { color: var(--text-mid); }
-    .status-right { margin-left: auto; }
+    .bubble pre code { background: none; padding: 0; font-size: 13px; line-height: 1.6; }
 
-    /* ── Input bar ── */
+    /* Thinking indicator */
+    .thinking {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 16px; background: var(--s1); border: 1px solid var(--bd);
+      border-radius: 14px; border-bottom-left-radius: 4px;
+      color: var(--mid); font-size: 14px; font-style: italic;
+      box-shadow: 0 1px 6px rgba(0,0,0,.25);
+    }
+    .dots { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+    .dots span {
+      display: inline-block; width: 5px; height: 5px; border-radius: 50%;
+      background: var(--ac); animation: pulse 1.4s ease-in-out infinite;
+    }
+    .dots span:nth-child(2) { animation-delay: .2s; }
+    .dots span:nth-child(3) { animation-delay: .4s; }
+    @keyframes pulse {
+      0%,80%,100% { transform: scale(.5); opacity: .25; }
+      40%          { transform: scale(1);  opacity: 1; }
+    }
+
+    /* ─── Status bar ─── */
+    .status {
+      display: flex; align-items: center; gap: 10px;
+      padding: 4px 20px; background: var(--s1); border-top: 1px solid var(--bd);
+      font-size: 11px; font-family: 'SF Mono', 'Fira Code', monospace;
+      color: var(--muted); flex-shrink: 0;
+    }
+    .sdot { width: 6px; height: 6px; border-radius: 50%; background: var(--ac); flex-shrink: 0; }
+    #status-text { color: var(--mid); }
+    .sright { margin-left: auto; }
+
+    /* ─── Input bar ─── */
     .input-bar {
-      display: flex;
-      gap: 10px;
-      align-items: flex-end;
-      padding: 14px 20px;
-      background: var(--surface);
-      border-top: 1px solid var(--border);
-      flex-shrink: 0;
+      display: flex; gap: 10px; align-items: flex-end;
+      padding: 14px 20px; background: var(--s1);
+      border-top: 1px solid var(--bd); flex-shrink: 0;
     }
-    #message-input {
-      flex: 1;
-      background: var(--surface-up);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      color: var(--text);
-      font-family: inherit;
-      font-size: 16px;       /* 16px prevents iOS auto-zoom on focus */
-      line-height: 1.55;
-      outline: none;
-      padding: 11px 15px;
-      resize: none;
-      max-height: 140px;
-      overflow-y: auto;
-      transition: border-color 0.15s, box-shadow 0.15s;
-      -webkit-appearance: none;
+    #msg-input {
+      flex: 1; background: var(--s2); border: 1px solid var(--bd);
+      border-radius: 10px; color: var(--text); font-family: inherit;
+      font-size: 16px; line-height: 1.55; outline: none;
+      padding: 11px 15px; resize: none; max-height: 140px; overflow-y: auto;
+      transition: border-color .15s, box-shadow .15s; -webkit-appearance: none;
     }
-    #message-input:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-glow);
+    #msg-input:focus { border-color: var(--ac); box-shadow: 0 0 0 3px var(--glow); }
+    #msg-input::placeholder { color: var(--muted); }
+    #btn-send {
+      background: var(--ac); border: none; border-radius: 10px;
+      color: #fff; cursor: pointer; font-family: inherit;
+      font-size: 14px; font-weight: 600; padding: 11px 22px;
+      align-self: flex-end; min-height: 44px;
+      transition: background .15s, transform .1s; -webkit-appearance: none;
     }
-    #message-input::placeholder { color: var(--text-dim); }
+    #btn-send:hover  { background: var(--ac2); }
+    #btn-send:active { transform: scale(.97); }
+    #btn-send:disabled { background: var(--bd); color: var(--muted); cursor: not-allowed; }
 
-    .btn-send {
-      background: var(--accent);
-      border: none;
-      border-radius: 10px;
-      color: #fff;
-      cursor: pointer;
-      font-family: inherit;
-      font-size: 14px;
-      font-weight: 600;
-      letter-spacing: 0.2px;
-      padding: 11px 24px;
-      align-self: flex-end;
-      min-height: 44px;       /* proper touch target */
-      transition: background 0.15s, transform 0.1s;
-      white-space: nowrap;
-      -webkit-appearance: none;
-    }
-    .btn-send:hover  { background: var(--accent-hover); }
-    .btn-send:active { transform: scale(0.97); }
-    .btn-send:disabled {
-      background: var(--border);
-      color: var(--text-dim);
-      cursor: not-allowed;
-    }
-
-    /* ── Mobile ── */
+    /* ─── Mobile ─── */
     @media (max-width: 640px) {
-      /* Two-row topbar: logo+buttons on top, aircraft field below */
-      .topbar {
-        padding: 10px 14px 8px;
-        column-gap: 10px;
-        row-gap: 8px;
-      }
-      .topbar-divider { display: none; }
-      .topbar-spacer  { flex: 1; min-width: 0; }
-
-      .acft-wrap {
-        order: 10;              /* push aircraft to second row */
-        flex: 0 0 100%;         /* full width */
-        max-width: none;
-      }
-
+      .topbar { padding: 9px 14px 8px; }
+      .tb-sep { display: none; }
+      .acft-wrap { order: 10; flex: 0 0 100%; max-width: none; }
       .logo-sub { display: none; }
-
-      /* Icon-only buttons on mobile — hide text labels */
-      .btn-label { display: none; }
-      .btn-action {
-        padding: 7px 11px;
-        min-height: 36px;
-      }
-      .btn-icon { font-size: 16px; }
-
-      .chat-area { padding: 16px 14px; gap: 16px; }
-      .message, .message.briefer { max-width: 97%; }
-      .msg-bubble { padding: 12px 14px; font-size: 15px; }
-
-      /* Hide status bar on mobile to save space */
-      .status-bar { display: none; }
-
+      .blabel { display: none; }
+      .btn-ghost  { padding: 7px 10px; min-height: 36px; }
+      .btn-primary { padding: 7px 11px; min-height: 36px; }
+      .bic { font-size: 17px; }
+      .modal { border-radius: 12px; }
+      .form-row { grid-template-columns: 1fr; }
+      .chat { padding: 14px 14px; gap: 16px; }
+      .msg, .msg.briefer { max-width: 97%; }
+      .bubble { padding: 12px 14px; font-size: 15px; }
+      .welcome-card { padding: 16px 16px 14px; }
+      .status { display: none; }
       .input-bar { padding: 10px 14px 14px; gap: 8px; }
-      #message-input { padding: 10px 13px; }
-      .btn-send { padding: 10px 18px; }
     }
 
-    /* Landscape phone — keep things compact */
     @media (max-width: 812px) and (orientation: landscape) {
-      .topbar { padding: 6px 16px; }
-      .chat-area { padding: 12px 16px; }
+      .topbar { padding: 6px 14px; }
+      .chat { padding: 10px 16px; }
       .input-bar { padding: 8px 16px 10px; }
     }
   </style>
@@ -437,350 +384,609 @@
 <body>
 <div class="app">
 
+  <!-- ─── Topbar ─── -->
   <header class="topbar">
     <div class="logo">
       <span class="logo-name">✈ Flight Watch</span>
       <span class="logo-sub">Aviation Weather Briefer</span>
     </div>
-
-    <div class="topbar-divider"></div>
-
+    <div class="tb-sep"></div>
     <div class="acft-wrap">
       <span class="acft-tag">ACFT</span>
-      <input
-        id="aircraft-input"
-        type="text"
-        value="2008 Diamond DA40 XLS"
-        autocomplete="off"
-        spellcheck="false"
-        placeholder="Aircraft type…"
-      />
-      <div class="autocomplete-list" id="autocomplete-list"></div>
+      <input id="aircraft-input" type="text" value="2008 Diamond DA40 XLS"
+             autocomplete="off" spellcheck="false" placeholder="Aircraft type…">
+      <div class="ac-list" id="ac-list"></div>
     </div>
-
-    <div class="topbar-spacer"></div>
-
-    <div class="topbar-actions">
-      <button class="btn-action" id="btn-save-briefing"  title="Save briefing as text file">
-        <span class="btn-icon">↓</span><span class="btn-label"> Save</span>
+    <div class="tb-space"></div>
+    <div class="tb-actions">
+      <button class="btn btn-primary" id="btn-quick" title="Fill in your flight details">
+        <span class="bic">⚡</span><span class="blabel"> Quick Brief</span>
       </button>
-      <button class="btn-action" id="btn-copy-briefing"  title="Copy briefing to clipboard">
-        <span class="btn-icon">⎘</span><span class="btn-label"> Copy</span>
+      <button class="btn btn-ghost" id="btn-save"  title="Save as text file">
+        <span class="bic">↓</span><span class="blabel"> Save</span>
       </button>
-      <button class="btn-action" id="btn-email-briefing" title="Email briefing">
-        <span class="btn-icon">✉</span><span class="btn-label"> Email</span>
+      <button class="btn btn-ghost" id="btn-copy"  title="Copy to clipboard">
+        <span class="bic">⎘</span><span class="blabel"> Copy</span>
       </button>
-      <button class="btn-action new" id="btn-new-briefing" title="Start new briefing">
-        <span class="btn-icon">↺</span><span class="btn-label"> New</span>
+      <button class="btn btn-ghost" id="btn-email" title="Email briefing">
+        <span class="bic">✉</span><span class="blabel"> Email</span>
+      </button>
+      <button class="btn btn-ghost danger" id="btn-new" title="New briefing">
+        <span class="bic">↺</span><span class="blabel"> New</span>
       </button>
     </div>
   </header>
 
-  <main class="chat-area" id="chat-area"></main>
+  <!-- ─── Quick Brief Modal ─── -->
+  <div class="modal-bg" id="modal-bg">
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Quick Brief">
+      <div class="modal-head">
+        <span class="modal-title">⚡ Quick Brief</span>
+        <button class="modal-x" id="modal-x" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-body">
 
-  <div class="status-bar">
-    <div class="status-dot"></div>
+        <div class="form-row">
+          <div class="fg">
+            <label class="flabel">From</label>
+            <div class="apt-wrap">
+              <input class="apt-inp" id="dep" placeholder="KBDR" maxlength="4" value="KBDR">
+              <div class="apt-name" id="dep-name" style="color:var(--green)">Igor I. Sikorsky Memorial · Bridgeport, CT</div>
+              <div class="apt-dd" id="dep-dd"></div>
+            </div>
+          </div>
+          <div class="fg">
+            <label class="flabel">To</label>
+            <div class="apt-wrap">
+              <input class="apt-inp" id="arr" placeholder="Destination…" maxlength="4">
+              <div class="apt-name" id="arr-name"></div>
+              <div class="apt-dd" id="arr-dd"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="fg">
+          <label class="flabel">Departure Time</label>
+          <div class="btn-grp">
+            <button class="seg-btn sel" data-time="now">Now</button>
+            <button class="seg-btn" data-time="1hr">In 1 hour</button>
+            <button class="seg-btn" data-time="2hr">In 2 hours</button>
+            <button class="seg-btn" data-time="3hr">In 3 hours</button>
+            <button class="seg-btn" data-time="custom">Custom…</button>
+          </div>
+          <input type="datetime-local" id="modal-time-custom">
+        </div>
+
+        <div class="fg">
+          <label class="flabel">Cruise Altitude</label>
+          <div class="btn-grp">
+            <button class="seg-btn" data-alt="3000">3,000</button>
+            <button class="seg-btn" data-alt="4500">4,500</button>
+            <button class="seg-btn sel" data-alt="6500">6,500</button>
+            <button class="seg-btn" data-alt="8500">8,500</button>
+            <button class="seg-btn" data-alt="10500">10,500</button>
+            <button class="seg-btn" data-alt="12500">12,500</button>
+          </div>
+        </div>
+
+        <div class="fg">
+          <label class="flabel">Flight Rules</label>
+          <div class="rules-grp">
+            <button class="rules-btn sel" data-rules="VFR">VFR — Solo</button>
+            <button class="rules-btn" data-rules="IFR">IFR — With Instructor</button>
+          </div>
+        </div>
+
+        <button class="modal-submit" id="modal-submit">⚡ Get My Briefing</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Chat ─── -->
+  <main class="chat" id="chat"></main>
+
+  <div class="status">
+    <div class="sdot"></div>
     <span id="status-text">Ready</span>
-    <span class="status-right">Not for navigation &nbsp;·&nbsp; aviationweather.gov</span>
+    <span class="sright">Not for navigation &nbsp;·&nbsp; aviationweather.gov</span>
   </div>
 
   <footer class="input-bar">
-    <textarea
-      id="message-input"
-      rows="1"
-      placeholder="Provide your flight details, or ask a question…"
-      autofocus
-    ></textarea>
-    <button class="btn-send" id="btn-send">Send</button>
+    <textarea id="msg-input" rows="1"
+      placeholder="Describe your flight or ask a question… (Shift+Enter for new line)"></textarea>
+    <button id="btn-send">Send</button>
   </footer>
 </div>
 
 <script>
-  marked.setOptions({ breaks: true, gfm: true });
+marked.setOptions({ breaks: true, gfm: true });
 
-  let aircraftList   = [];
-  let acSelectedIndex = -1;
-  let isWaiting      = false;
+/* ─── Airport data ─── */
+const AIRPORTS = [
+  {icao:'KBDR',name:'Sikorsky Memorial',      city:'Bridgeport, CT'},
+  {icao:'KHVN',name:'Tweed–New Haven',         city:'New Haven, CT'},
+  {icao:'KGON',name:'Groton–New London',       city:'Groton, CT'},
+  {icao:'KHFD',name:'Hartford Brainard',        city:'Hartford, CT'},
+  {icao:'KDXR',name:'Danbury Municipal',        city:'Danbury, CT'},
+  {icao:'KBAF',name:'Westfield–Barnes',         city:'Westfield, MA'},
+  {icao:'KFIT',name:'Fitchburg Municipal',      city:'Fitchburg, MA'},
+  {icao:'KOWD',name:'Norwood Memorial',         city:'Norwood, MA'},
+  {icao:'KBED',name:'Hanscom Field',            city:'Bedford, MA'},
+  {icao:'KBOS',name:'Logan International',      city:'Boston, MA'},
+  {icao:'KPVD',name:'T.F. Green International', city:'Providence, RI'},
+  {icao:'KORH',name:'Worcester Regional',       city:'Worcester, MA'},
+  {icao:'KACK',name:'Nantucket Memorial',       city:'Nantucket, MA'},
+  {icao:'KMVY',name:"Martha's Vineyard",        city:'Vineyard Haven, MA'},
+  {icao:'KHYA',name:'Barnstable Municipal',     city:'Hyannis, MA'},
+  {icao:'KEWB',name:'New Bedford Regional',     city:'New Bedford, MA'},
+  {icao:'KJFK',name:'JFK International',        city:'New York, NY'},
+  {icao:'KLGA',name:'LaGuardia',                city:'New York, NY'},
+  {icao:'KTEB',name:'Teterboro',                city:'Teterboro, NJ'},
+  {icao:'KEWR',name:'Newark Liberty',           city:'Newark, NJ'},
+  {icao:'KCDW',name:'Caldwell Executive',       city:'Caldwell, NJ'},
+  {icao:'KSMQ',name:'Solberg–Hunterdon',        city:'Whitehouse Station, NJ'},
+  {icao:'KBLM',name:'Monmouth Executive',       city:'Belmar, NJ'},
+  {icao:'KPOU',name:'Dutchess County',          city:'Poughkeepsie, NY'},
+  {icao:'KSWF',name:'Stewart International',    city:'Newburgh, NY'},
+  {icao:'KMGJ',name:'Orange County',            city:'Montgomery, NY'},
+  {icao:'KELM',name:'Elmira Corning Regional',  city:'Elmira, NY'},
+  {icao:'KALB',name:'Albany International',     city:'Albany, NY'},
+  {icao:'KSYR',name:'Syracuse Hancock',         city:'Syracuse, NY'},
+  {icao:'KBUF',name:'Buffalo Niagara',          city:'Buffalo, NY'},
+  {icao:'KIAG',name:'Niagara Falls Intl',       city:'Niagara Falls, NY'},
+  {icao:'KPHL',name:'Philadelphia Intl',        city:'Philadelphia, PA'},
+  {icao:'KPIT',name:'Pittsburgh International', city:'Pittsburgh, PA'},
+  {icao:'KDCA',name:'Reagan National',          city:'Washington, DC'},
+  {icao:'KIAD',name:'Dulles International',     city:'Dulles, VA'},
+  {icao:'KBWI',name:'BWI International',        city:'Baltimore, MD'},
+  {icao:'KRIC',name:'Richmond International',   city:'Richmond, VA'},
+  {icao:'KBTV',name:'Burlington International', city:'Burlington, VT'},
+  {icao:'KPSM',name:'Portsmouth Intl',          city:'Portsmouth, NH'},
+  {icao:'KPWM',name:'Portland Jetport',         city:'Portland, ME'},
+  {icao:'KBGR',name:'Bangor International',     city:'Bangor, ME'},
+  {icao:'KBHB',name:'Bar Harbor',               city:'Bar Harbor, ME'},
+];
 
-  const chatArea      = document.getElementById('chat-area');
-  const msgInput      = document.getElementById('message-input');
-  const btnSend       = document.getElementById('btn-send');
-  const aircraftInput = document.getElementById('aircraft-input');
-  const autocomplete  = document.getElementById('autocomplete-list');
-  const statusText    = document.getElementById('status-text');
+function aptSearch(q) {
+  if (!q || q.length < 2) return [];
+  const u = q.toUpperCase(), l = q.toLowerCase();
+  return AIRPORTS.filter(a =>
+    a.icao.includes(u) || a.name.toLowerCase().includes(l) || a.city.toLowerCase().includes(l)
+  ).slice(0, 7);
+}
+function aptByIcao(icao) {
+  return AIRPORTS.find(a => a.icao === icao.toUpperCase()) || null;
+}
 
-  fetch('/aircraft').then(r => r.json()).then(l => { aircraftList = l; }).catch(() => {});
+/* ─── DOM refs ─── */
+const chatEl   = document.getElementById('chat');
+const msgInput = document.getElementById('msg-input');
+const btnSend  = document.getElementById('btn-send');
+const acInput  = document.getElementById('aircraft-input');
+const acList   = document.getElementById('ac-list');
+const statusEl = document.getElementById('status-text');
 
-  /* ── Aircraft autocomplete ── */
-  aircraftInput.addEventListener('input', () => {
-    const q = aircraftInput.value.trim().toLowerCase();
-    acSelectedIndex = -1;
-    if (!q) { hideAc(); return; }
-    const m = aircraftList.filter(a => a.toLowerCase().includes(q)).slice(0, 8);
-    if (!m.length) { hideAc(); return; }
-    autocomplete.innerHTML = m.map((a, i) =>
-      `<div class="autocomplete-item" data-i="${i}">${a}</div>`).join('');
-    autocomplete.classList.add('visible');
+let aircraftList = [], acSelIdx = -1, isWaiting = false;
+let selTime = 'now', selAlt = '6500', selRules = 'VFR';
+
+fetch('/aircraft').then(r => r.json()).then(l => { aircraftList = l; }).catch(() => {});
+
+/* ─── Aircraft autocomplete (topbar) ─── */
+acInput.addEventListener('input', () => {
+  const q = acInput.value.trim().toLowerCase(); acSelIdx = -1;
+  if (!q) { closeAc(); return; }
+  const m = aircraftList.filter(a => a.toLowerCase().includes(q)).slice(0, 8);
+  if (!m.length) { closeAc(); return; }
+  acList.innerHTML = m.map((a, i) => `<div class="ac-item" data-i="${i}">${a}</div>`).join('');
+  acList.classList.add('open');
+});
+acInput.addEventListener('keydown', e => {
+  const items = acList.querySelectorAll('.ac-item'); if (!items.length) return;
+  if (e.key === 'ArrowDown') { e.preventDefault(); acSelIdx = Math.min(acSelIdx+1, items.length-1); updAc(items); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); acSelIdx = Math.max(acSelIdx-1, 0); updAc(items); }
+  else if (e.key === 'Enter' && acSelIdx >= 0) { e.preventDefault(); acInput.value = items[acSelIdx].textContent; closeAc(); }
+  else if (e.key === 'Escape') closeAc();
+});
+acList.addEventListener('mousedown', e => {
+  const it = e.target.closest('.ac-item'); if (it) { acInput.value = it.textContent; closeAc(); }
+});
+document.addEventListener('click', e => {
+  if (!acInput.contains(e.target) && !acList.contains(e.target)) closeAc();
+});
+function updAc(items) {
+  items.forEach((el, i) => el.classList.toggle('sel', i === acSelIdx));
+  if (acSelIdx >= 0) items[acSelIdx].scrollIntoView({ block: 'nearest' });
+}
+function closeAc() { acList.classList.remove('open'); acList.innerHTML = ''; acSelIdx = -1; }
+
+/* ─── Airport inputs (modal) ─── */
+function wireAptInput(inputEl, ddEl, nameEl) {
+  function refresh(val) {
+    const u = val.trim().toUpperCase();
+    const exact = aptByIcao(u);
+    if (exact) {
+      nameEl.textContent = `${exact.name} · ${exact.city}`;
+      nameEl.style.color = 'var(--green)';
+    } else if (val.length >= 2) {
+      nameEl.textContent = 'Type ICAO or city…';
+      nameEl.style.color = '';
+    } else {
+      nameEl.textContent = '';
+    }
+    const results = aptSearch(val);
+    if (!results.length || exact) { ddEl.classList.remove('open'); ddEl.innerHTML = ''; return; }
+    ddEl.innerHTML = results.map(a =>
+      `<div class="apt-opt" data-icao="${a.icao}">
+        <div class="apt-icao">${a.icao}</div>
+        <div class="apt-info">${a.name} · ${a.city}</div>
+      </div>`
+    ).join('');
+    ddEl.classList.add('open');
+  }
+  inputEl.addEventListener('input', () => refresh(inputEl.value));
+  inputEl.addEventListener('focus', () => { if (inputEl.value.length >= 2) refresh(inputEl.value); });
+  ddEl.addEventListener('mousedown', e => {
+    const opt = e.target.closest('.apt-opt'); if (!opt) return;
+    const apt = aptByIcao(opt.dataset.icao);
+    inputEl.value = opt.dataset.icao;
+    nameEl.textContent = apt ? `${apt.name} · ${apt.city}` : '';
+    nameEl.style.color = 'var(--green)';
+    ddEl.classList.remove('open'); ddEl.innerHTML = '';
   });
+  document.addEventListener('click', e => {
+    if (!inputEl.closest('.apt-wrap').contains(e.target)) ddEl.classList.remove('open');
+  });
+}
+wireAptInput(document.getElementById('dep'), document.getElementById('dep-dd'), document.getElementById('dep-name'));
+wireAptInput(document.getElementById('arr'), document.getElementById('arr-dd'), document.getElementById('arr-name'));
 
-  aircraftInput.addEventListener('keydown', e => {
-    const items = autocomplete.querySelectorAll('.autocomplete-item');
-    if (!items.length) return;
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      acSelectedIndex = Math.min(acSelectedIndex + 1, items.length - 1);
-      updateAc(items);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      acSelectedIndex = Math.max(acSelectedIndex - 1, 0);
-      updateAc(items);
-    } else if (e.key === 'Enter' && acSelectedIndex >= 0) {
-      e.preventDefault();
-      aircraftInput.value = items[acSelectedIndex].textContent;
-      hideAc();
-    } else if (e.key === 'Escape') {
-      hideAc();
+/* Time buttons */
+document.querySelectorAll('[data-time]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-time]').forEach(b => b.classList.remove('sel'));
+    btn.classList.add('sel'); selTime = btn.dataset.time;
+    const custom = document.getElementById('modal-time-custom');
+    if (selTime === 'custom') {
+      const d = new Date(Date.now() + 3600000);
+      custom.value = d.toISOString().slice(0, 16);
+      custom.classList.add('show');
+    } else {
+      custom.classList.remove('show');
     }
   });
+});
 
-  autocomplete.addEventListener('mousedown', e => {
-    const item = e.target.closest('.autocomplete-item');
-    if (item) { aircraftInput.value = item.textContent; hideAc(); }
+/* Altitude buttons */
+document.querySelectorAll('[data-alt]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-alt]').forEach(b => b.classList.remove('sel'));
+    btn.classList.add('sel'); selAlt = btn.dataset.alt;
+  });
+});
+
+/* Rules buttons */
+document.querySelectorAll('[data-rules]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-rules]').forEach(b => b.classList.remove('sel'));
+    btn.classList.add('sel'); selRules = btn.dataset.rules;
+  });
+});
+
+/* Modal open / close */
+function openModal() { document.getElementById('modal-bg').classList.add('open'); document.getElementById('dep').focus(); }
+function closeModal() { document.getElementById('modal-bg').classList.remove('open'); }
+
+document.getElementById('btn-quick').addEventListener('click', openModal);
+document.getElementById('modal-x').addEventListener('click', closeModal);
+document.getElementById('modal-bg').addEventListener('click', e => { if (e.target === document.getElementById('modal-bg')) closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+/* Modal submit */
+document.getElementById('modal-submit').addEventListener('click', () => {
+  const dep = (document.getElementById('dep').value.trim() || 'KBDR').toUpperCase();
+  const arr = document.getElementById('arr').value.trim().toUpperCase();
+  if (!arr) { document.getElementById('arr').focus(); return; }
+
+  let timeStr;
+  if      (selTime === 'now')    timeStr = 'departing now';
+  else if (selTime === '1hr')    timeStr = 'departing in approximately 1 hour';
+  else if (selTime === '2hr')    timeStr = 'departing in approximately 2 hours';
+  else if (selTime === '3hr')    timeStr = 'departing in approximately 3 hours';
+  else {
+    const cv = document.getElementById('modal-time-custom').value;
+    timeStr = cv
+      ? `departing at ${new Date(cv).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} local`
+      : 'departing today';
+  }
+
+  const altFmt  = parseInt(selAlt).toLocaleString();
+  const rulesTxt = selRules === 'IFR' ? 'IFR with a flight instructor' : 'VFR solo';
+  const acft     = acInput.value.trim() || '2008 Diamond DA40 XLS';
+
+  saveRoute(dep, arr);
+  closeModal();
+
+  const message = `I'd like a standard weather briefing for a flight from ${dep} to ${arr}, ${timeStr}, cruising at ${altFmt} feet MSL, ${rulesTxt}, in a ${acft}.`;
+  msgInput.value = message;
+  msgInput.style.height = 'auto';
+  msgInput.style.height = Math.min(msgInput.scrollHeight, 140) + 'px';
+  sendMessage();
+});
+
+/* ─── Recent routes (localStorage) ─── */
+function saveRoute(dep, arr) {
+  try {
+    let r = JSON.parse(localStorage.getItem('fw_routes') || '[]');
+    const k = `${dep}→${arr}`;
+    r = [k, ...r.filter(x => x !== k)].slice(0, 5);
+    localStorage.setItem('fw_routes', JSON.stringify(r));
+  } catch(_) {}
+}
+function getRoutes() {
+  try { return JSON.parse(localStorage.getItem('fw_routes') || '[]'); } catch(_) { return []; }
+}
+
+/* ─── Welcome screen ─── */
+function showWelcome() {
+  const h = new Date().getHours();
+  const t = h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'msg briefer';
+  const who = document.createElement('div');
+  who.className = 'msg-who'; who.textContent = 'Flight Watch';
+
+  const card = document.createElement('div');
+  card.className = 'welcome-card';
+  card.innerHTML = `
+    <div class="wc-header">
+      <span class="wc-icon">✈</span>
+      <div>
+        <div class="wc-title">Good ${t}, this is Flight Watch.</div>
+        <div class="wc-sub">Standard Aviation Weather Briefing · aviationweather.gov</div>
+      </div>
+    </div>
+    <div class="wc-body">
+      <p>I provide live weather briefings for your flight. To get started I'll need:</p>
+      <ul>
+        <li><strong>Departure</strong> — defaults to KBDR</li>
+        <li><strong>Destination</strong></li>
+        <li><strong>Planned departure time</strong></li>
+        <li><strong>Cruise altitude</strong></li>
+        <li><strong>Aircraft</strong> — defaults to 2008 Diamond DA40 XLS</li>
+        <li><strong>Flight rules</strong> — VFR solo or IFR with instructor</li>
+      </ul>
+    </div>
+    <div class="wc-cta">
+      <button class="btn btn-primary" onclick="openModal()">
+        <span>⚡</span> Fill Quick Brief Form
+      </button>
+      <span class="wc-hint">— or just type your flight below</span>
+    </div>
+  `;
+
+  wrap.appendChild(who);
+  wrap.appendChild(card);
+  chatEl.appendChild(wrap);
+  scrollBottom();
+
+  showChips();
+}
+
+function showChips() {
+  const recent  = getRoutes();
+  const statics = ['KBDR → KHVN', 'KBDR → KBOS', 'Area forecast', 'Weekend planning'];
+  const all = [];
+  recent.forEach(r => all.push({ label: r.replace('→', ' → '), raw: r }));
+  statics.forEach(s => {
+    const raw = s.replace(' → ', '→');
+    if (!recent.includes(raw)) all.push({ label: s, raw });
   });
 
-  document.addEventListener('click', e => {
-    if (!aircraftInput.contains(e.target) && !autocomplete.contains(e.target)) hideAc();
-  });
+  const chips = all.slice(0, 6);
+  if (!chips.length) return;
 
-  function updateAc(items) {
-    items.forEach((el, i) => el.classList.toggle('selected', i === acSelectedIndex));
-    if (acSelectedIndex >= 0) items[acSelectedIndex].scrollIntoView({ block: 'nearest' });
-  }
-  function hideAc() {
-    autocomplete.classList.remove('visible');
-    autocomplete.innerHTML = '';
-    acSelectedIndex = -1;
-  }
+  const row = document.createElement('div');
+  row.className = 'chips';
 
-  /* ── Textarea auto-resize ── */
-  msgInput.addEventListener('input', () => {
-    msgInput.style.height = 'auto';
-    msgInput.style.height = Math.min(msgInput.scrollHeight, 140) + 'px';
-  });
-  msgInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-  });
-
-  document.getElementById('btn-send').addEventListener('click', sendMessage);
-  document.getElementById('btn-new-briefing').addEventListener('click', newBriefing);
-  document.getElementById('btn-save-briefing').addEventListener('click', saveBriefing);
-  document.getElementById('btn-copy-briefing').addEventListener('click', copyBriefing);
-  document.getElementById('btn-email-briefing').addEventListener('click', emailBriefing);
-
-  /* ── Helpers ── */
-  function scrollBottom() {
-    chatArea.scrollTop = chatArea.scrollHeight;
-  }
-
-  function appendMessage(role, text, isMarkdown = false) {
-    const wrap   = document.createElement('div');
-    wrap.className = `message ${role}`;
-    const lbl    = document.createElement('div');
-    lbl.className  = 'msg-label';
-    lbl.textContent = role === 'user' ? 'Pilot' : 'Flight Watch';
-    const bubble = document.createElement('div');
-    bubble.className = 'msg-bubble';
-    if (isMarkdown) bubble.innerHTML = marked.parse(text);
-    else bubble.textContent = text;
-    wrap.appendChild(lbl);
-    wrap.appendChild(bubble);
-    chatArea.appendChild(wrap);
-    scrollBottom();
-    return { wrap, bubble };
-  }
-
-  function appendThinking(msg) {
-    const wrap   = document.createElement('div');
-    wrap.className = 'message briefer';
-    const lbl    = document.createElement('div');
-    lbl.className  = 'msg-label';
-    lbl.textContent = 'Flight Watch';
-    const bubble = document.createElement('div');
-    bubble.className = 'thinking-bubble';
-    bubble.innerHTML = `<span id="think-status">${msg || 'Connecting\u2026'}</span>
-      <span class="thinking-dots"><span></span><span></span><span></span></span>`;
-    wrap.appendChild(lbl);
-    wrap.appendChild(bubble);
-    chatArea.appendChild(wrap);
-    scrollBottom();
-    return wrap;
-  }
-
-  /* ── Welcome screen ── */
-  function showWelcome() {
-    const h = new Date().getHours();
-    const t = h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening';
-    const msg = `Good ${t}, this is Flight Watch.\n\nTo begin your standard weather briefing, please provide the following:\n\n- **Departure airport** — default KBDR\n- **Destination airport**\n- **Planned departure time** — local or Zulu\n- **Cruise altitude**\n- **Aircraft** — default 2008 Diamond DA40 XLS\n- **Flight rules** — VFR solo, or IFR with instructor\n\nYou may provide all details at once, or I'll ask for each in turn.`;
-    appendMessage('briefer', msg, true);
-  }
-
-  /* ── Send (streaming) ── */
-  async function sendMessage() {
-    if (isWaiting) return;
-    const text = msgInput.value.trim();
-    if (!text) return;
-
-    msgInput.value = '';
-    msgInput.style.height = 'auto';
-    appendMessage('user', text, false);
-
-    isWaiting = true;
-    btnSend.disabled = true;
-    statusText.textContent = 'Connecting\u2026';
-
-    const thinkEl      = appendThinking('Connecting\u2026');
-    let brieferBubble  = null;
-    let fullText       = '';
-
-    try {
-      const resp = await fetch('/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message:   text,
-          aircraft:  aircraftInput.value.trim(),
-          departure: '',
-        }),
-      });
-
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-
-      const reader  = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer    = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split('\n\n');
-        buffer = parts.pop();
-
-        for (const part of parts) {
-          const line = part.trim();
-          if (!line.startsWith('data: ')) continue;
-          let data;
-          try { data = JSON.parse(line.slice(6)); } catch { continue; }
-
-          if (data.type === 'status') {
-            statusText.textContent = data.text;
-            const ts = thinkEl.querySelector('#think-status');
-            if (ts) ts.textContent = data.text;
-
-          } else if (data.type === 'text') {
-            if (thinkEl.parentNode) thinkEl.remove();
-            if (!brieferBubble) {
-              const wrap     = document.createElement('div');
-              wrap.className = 'message briefer';
-              const lbl      = document.createElement('div');
-              lbl.className  = 'msg-label';
-              lbl.textContent = 'Flight Watch';
-              brieferBubble  = document.createElement('div');
-              brieferBubble.className = 'msg-bubble';
-              wrap.appendChild(lbl);
-              wrap.appendChild(brieferBubble);
-              chatArea.appendChild(wrap);
-            }
-            fullText += data.text;
-            brieferBubble.innerHTML = marked.parse(fullText);
-            scrollBottom();
-
-          } else if (data.type === 'done') {
-            if (thinkEl.parentNode) thinkEl.remove();
-            if (brieferBubble) brieferBubble.innerHTML = marked.parse(fullText);
-            statusText.textContent = 'Ready';
-
-          } else if (data.type === 'error') {
-            if (thinkEl.parentNode) thinkEl.remove();
-            appendMessage('briefer', data.text || 'A system error occurred.', false);
-            statusText.textContent = 'Error';
-          }
+  chips.forEach(({ label, raw }) => {
+    const el = document.createElement('button');
+    el.className = 'chip';
+    el.textContent = label;
+    el.addEventListener('click', () => {
+      if (label === 'Area forecast') {
+        msgInput.value = 'What is the current area forecast and synopsis for Connecticut and New York?';
+        autoHeight();
+        msgInput.focus();
+      } else if (label === 'Weekend planning') {
+        msgInput.value = 'I am planning a flight this weekend. Can you give me an extended outlook for the weather pattern?';
+        autoHeight();
+        msgInput.focus();
+      } else {
+        // Route chip — pre-fill modal
+        const parts = raw.split('→');
+        if (parts.length === 2) {
+          const dep = parts[0], arr = parts[1];
+          document.getElementById('dep').value = dep;
+          document.getElementById('arr').value = arr;
+          const da = aptByIcao(dep), aa = aptByIcao(arr);
+          const dn = document.getElementById('dep-name'), an = document.getElementById('arr-name');
+          dn.textContent = da ? `${da.name} · ${da.city}` : '';
+          dn.style.color = da ? 'var(--green)' : '';
+          an.textContent = aa ? `${aa.name} · ${aa.city}` : '';
+          an.style.color = aa ? 'var(--green)' : '';
+          openModal();
         }
       }
-      if (thinkEl.parentNode) thinkEl.remove();
-
-    } catch {
-      if (thinkEl.parentNode) thinkEl.remove();
-      appendMessage('briefer', 'Communications failure. Please try again.', false);
-      statusText.textContent = 'Error';
-    } finally {
-      isWaiting        = false;
-      btnSend.disabled = false;
-      msgInput.focus();
-    }
-  }
-
-  /* ── New briefing ── */
-  async function newBriefing() {
-    if (isWaiting) return;
-    try { await fetch('/reset', { method: 'POST' }); } catch (_) {}
-    chatArea.innerHTML = '';
-    statusText.textContent = 'Ready';
-    showWelcome();
-    msgInput.focus();
-  }
-
-  /* ── Export helpers ── */
-  function buildBriefingText() {
-    const msgs = [];
-    chatArea.querySelectorAll('.message').forEach(msg => {
-      const role = msg.classList.contains('user') ? 'PILOT' : 'FLIGHT WATCH';
-      const text = msg.querySelector('.msg-bubble')?.innerText?.trim();
-      if (text) msgs.push(`[${role}]\n${text}`);
     });
-    if (!msgs.length) return '';
-    const sep = '\n\n' + '\u2500'.repeat(60) + '\n\n';
-    const hdr = `FLIGHT WATCH WEATHER BRIEFING\n${new Date().toUTCString()}\nAircraft: ${aircraftInput.value || '\u2014'}\n${'═'.repeat(60)}\n\n`;
-    return hdr + msgs.join(sep);
-  }
+    row.appendChild(el);
+  });
 
-  function saveBriefing() {
-    const c = buildBriefingText();
-    if (!c) return;
-    const ts  = new Date().toISOString().slice(0, 16).replace(/[T:]/g, '-');
-    const url = URL.createObjectURL(new Blob([c], { type: 'text/plain' }));
-    const a   = document.createElement('a');
-    a.href = url; a.download = `briefing-${ts}.txt`; a.click();
-    URL.revokeObjectURL(url);
-  }
+  chatEl.appendChild(row);
+  scrollBottom();
+}
 
-  async function copyBriefing() {
-    const c   = buildBriefingText();
-    if (!c) return;
-    const btn = document.getElementById('btn-copy-briefing');
-    try {
-      await navigator.clipboard.writeText(c);
-      btn.innerHTML = '<span class="btn-icon">✓</span><span class="btn-label"> Copied</span>';
-    } catch {
-      btn.innerHTML = '<span class="btn-icon">✗</span><span class="btn-label"> Failed</span>';
+/* ─── Textarea helpers ─── */
+function autoHeight() {
+  msgInput.style.height = 'auto';
+  msgInput.style.height = Math.min(msgInput.scrollHeight, 140) + 'px';
+}
+function scrollBottom() { chatEl.scrollTop = chatEl.scrollHeight; }
+
+msgInput.addEventListener('input', autoHeight);
+msgInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+
+/* ─── Button listeners ─── */
+btnSend.addEventListener('click', sendMessage);
+document.getElementById('btn-new').addEventListener('click', newBriefing);
+document.getElementById('btn-save').addEventListener('click', saveBriefing);
+document.getElementById('btn-copy').addEventListener('click', copyBriefing);
+document.getElementById('btn-email').addEventListener('click', emailBriefing);
+
+/* ─── Send (streaming) ─── */
+async function sendMessage() {
+  if (isWaiting) return;
+  const text = msgInput.value.trim(); if (!text) return;
+
+  // Remove chips on first send
+  chatEl.querySelectorAll('.chips').forEach(el => el.remove());
+
+  msgInput.value = ''; msgInput.style.height = 'auto';
+
+  // User bubble
+  const uw = document.createElement('div'); uw.className = 'msg user';
+  const ul = document.createElement('div'); ul.className = 'msg-who'; ul.textContent = 'Pilot';
+  const ub = document.createElement('div'); ub.className = 'bubble'; ub.textContent = text;
+  uw.appendChild(ul); uw.appendChild(ub); chatEl.appendChild(uw); scrollBottom();
+
+  isWaiting = true; btnSend.disabled = true; statusEl.textContent = 'Connecting…';
+
+  // Thinking indicator
+  const tw  = document.createElement('div'); tw.className = 'msg briefer';
+  const twl = document.createElement('div'); twl.className = 'msg-who'; twl.textContent = 'Flight Watch';
+  const tb  = document.createElement('div'); tb.className = 'thinking';
+  tb.innerHTML = `<span id="think-txt">Connecting…</span><span class="dots"><span></span><span></span><span></span></span>`;
+  tw.appendChild(twl); tw.appendChild(tb); chatEl.appendChild(tw); scrollBottom();
+
+  let brieferBubble = null, fullText = '';
+
+  try {
+    const resp = await fetch('/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text, aircraft: acInput.value.trim(), departure: '' }),
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+    const reader = resp.body.getReader(), dec = new TextDecoder();
+    let buf = '';
+
+    while (true) {
+      const { done, value } = await reader.read(); if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const parts = buf.split('\n\n'); buf = parts.pop();
+
+      for (const part of parts) {
+        const line = part.trim(); if (!line.startsWith('data: ')) continue;
+        let data; try { data = JSON.parse(line.slice(6)); } catch { continue; }
+
+        if (data.type === 'status') {
+          statusEl.textContent = data.text;
+          const ts = tw.querySelector('#think-txt'); if (ts) ts.textContent = data.text;
+
+        } else if (data.type === 'text') {
+          if (tw.parentNode) tw.remove();
+          if (!brieferBubble) {
+            const bw = document.createElement('div'); bw.className = 'msg briefer';
+            const bl = document.createElement('div'); bl.className = 'msg-who'; bl.textContent = 'Flight Watch';
+            brieferBubble = document.createElement('div'); brieferBubble.className = 'bubble';
+            bw.appendChild(bl); bw.appendChild(brieferBubble); chatEl.appendChild(bw);
+          }
+          fullText += data.text;
+          brieferBubble.innerHTML = marked.parse(fullText);
+          scrollBottom();
+
+        } else if (data.type === 'done') {
+          if (tw.parentNode) tw.remove();
+          if (brieferBubble) brieferBubble.innerHTML = marked.parse(fullText);
+          statusEl.textContent = 'Ready';
+
+        } else if (data.type === 'error') {
+          if (tw.parentNode) tw.remove();
+          const ew = document.createElement('div'); ew.className = 'msg briefer';
+          const el2 = document.createElement('div'); el2.className = 'msg-who'; el2.textContent = 'Flight Watch';
+          const eb = document.createElement('div'); eb.className = 'bubble'; eb.textContent = data.text || 'A system error occurred.';
+          ew.appendChild(el2); ew.appendChild(eb); chatEl.appendChild(ew); scrollBottom();
+          statusEl.textContent = 'Error';
+        }
+      }
     }
-    setTimeout(() => {
-      btn.innerHTML = '<span class="btn-icon">⎘</span><span class="btn-label"> Copy</span>';
-    }, 2000);
-  }
+    if (tw.parentNode) tw.remove();
 
-  function emailBriefing() {
-    const c = buildBriefingText();
-    if (!c) return;
-    const body = encodeURIComponent(
-      c.length > 1800 ? c.slice(0, 1800) + '\n\n[Truncated \u2014 use Save for full text]' : c
-    );
-    window.location.href =
-      `mailto:?subject=${encodeURIComponent('Flight Watch Weather Briefing')}&body=${body}`;
+  } catch {
+    if (tw.parentNode) tw.remove();
+    const ew = document.createElement('div'); ew.className = 'msg briefer';
+    const el2 = document.createElement('div'); el2.className = 'msg-who'; el2.textContent = 'Flight Watch';
+    const eb = document.createElement('div'); eb.className = 'bubble'; eb.textContent = 'Communications failure. Please try again.';
+    ew.appendChild(el2); ew.appendChild(eb); chatEl.appendChild(ew); scrollBottom();
+    statusEl.textContent = 'Error';
+  } finally {
+    isWaiting = false; btnSend.disabled = false; msgInput.focus();
   }
+}
 
-  /* ── Init ── */
-  showWelcome();
+/* ─── New briefing ─── */
+async function newBriefing() {
+  if (isWaiting) return;
+  try { await fetch('/reset', { method: 'POST' }); } catch(_) {}
+  chatEl.innerHTML = ''; statusEl.textContent = 'Ready';
+  showWelcome(); msgInput.focus();
+}
+
+/* ─── Export ─── */
+function buildText() {
+  const msgs = [];
+  chatEl.querySelectorAll('.msg').forEach(m => {
+    const role = m.classList.contains('user') ? 'PILOT' : 'FLIGHT WATCH';
+    const txt  = m.querySelector('.bubble')?.innerText?.trim();
+    if (txt) msgs.push(`[${role}]\n${txt}`);
+  });
+  if (!msgs.length) return '';
+  const sep = '\n\n' + '─'.repeat(60) + '\n\n';
+  const hdr = `FLIGHT WATCH WEATHER BRIEFING\n${new Date().toUTCString()}\nAircraft: ${acInput.value || '—'}\n${'═'.repeat(60)}\n\n`;
+  return hdr + msgs.join(sep);
+}
+
+function saveBriefing() {
+  const c = buildText(); if (!c) return;
+  const ts  = new Date().toISOString().slice(0, 16).replace(/[T:]/g, '-');
+  const url = URL.createObjectURL(new Blob([c], { type: 'text/plain' }));
+  const a   = document.createElement('a'); a.href = url; a.download = `briefing-${ts}.txt`; a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function copyBriefing() {
+  const c = buildText(); if (!c) return;
+  const btn = document.getElementById('btn-copy');
+  try {
+    await navigator.clipboard.writeText(c);
+    btn.innerHTML = '<span class="bic">✓</span><span class="blabel"> Copied</span>';
+  } catch {
+    btn.innerHTML = '<span class="bic">✗</span><span class="blabel"> Failed</span>';
+  }
+  setTimeout(() => { btn.innerHTML = '<span class="bic">⎘</span><span class="blabel"> Copy</span>'; }, 2000);
+}
+
+function emailBriefing() {
+  const c = buildText(); if (!c) return;
+  const body = encodeURIComponent(c.length > 1800 ? c.slice(0, 1800) + '\n\n[Truncated — use Save for full text]' : c);
+  window.location.href = `mailto:?subject=${encodeURIComponent('Flight Watch Weather Briefing')}&body=${body}`;
+}
+
+/* ─── Init ─── */
+showWelcome();
 </script>
 </body>
 </html>
