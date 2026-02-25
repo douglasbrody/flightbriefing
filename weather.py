@@ -250,18 +250,27 @@ def get_notams(icao: str) -> str:
     client_secret = (os.environ.get("FAA_CLIENT_SECRET")
                      or os.environ.get("NMS_CLIENT_SECRET", ""))
     if not client_id or not client_secret:
+        missing = [k for k, v in [("FAA_CLIENT_ID", client_id),
+                                   ("FAA_CLIENT_SECRET", client_secret)] if not v]
         return (
-            f"NOTAM data for {icao} requires FAA API credentials "
-            f"(FAA_CLIENT_ID / FAA_CLIENT_SECRET not set). "
-            f"Check https://preflight.faa.gov or call 1-800-WX-BRIEF for NOTAMs."
+            f"NOTAM data for {icao} unavailable: missing env vars {missing}. "
+            f"Check https://preflight.faa.gov before flight."
         )
     try:
         resp = requests.get(
             FAA_NOTAM_URL,
-            params={"icaoLocation": icao, "pageSize": 50},
-            auth=(client_id, client_secret),
+            params={"icaoLocation": icao, "pageSize": 50,
+                    "client_id": client_id, "client_secret": client_secret},
             timeout=NOTAM_TIMEOUT,
         )
+        if resp.status_code == 401:
+            # Fall back to Basic auth if query-param auth failed
+            resp = requests.get(
+                FAA_NOTAM_URL,
+                params={"icaoLocation": icao, "pageSize": 50},
+                auth=(client_id, client_secret),
+                timeout=NOTAM_TIMEOUT,
+            )
         resp.raise_for_status()
         items = resp.json().get("items", [])
         if not items:
@@ -287,6 +296,9 @@ def get_notams(icao: str) -> str:
         return json.dumps(notams)
     except requests.exceptions.Timeout:
         return f"NOTAM request for {icao} timed out. Check preflight.faa.gov before flight."
+    except requests.exceptions.HTTPError as e:
+        return (f"NOTAM API error for {icao}: HTTP {e.response.status_code} — "
+                f"{e.response.text[:200]}. Check preflight.faa.gov before flight.")
     except Exception as e:
         return f"Error fetching NOTAMs for {icao}: {str(e)}. Check preflight.faa.gov before flight."
 
