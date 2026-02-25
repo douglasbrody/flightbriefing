@@ -304,8 +304,8 @@ def get_notams(icao: str) -> str:
             core = feature.get("properties", {}).get("coreNOTAMData", {})
             notam = core.get("notam", {})
             translations = core.get("notamTranslation", [])
-            domestic = next(
-                (t.get("domestic_message", "") for t in translations
+            simple = next(
+                (t.get("simpleText", "") for t in translations
                  if t.get("type") == "LOCAL_FORMAT"), ""
             )
             notams.append({
@@ -313,8 +313,7 @@ def get_notams(icao: str) -> str:
                 "number": notam.get("number", ""),
                 "effectiveStart": notam.get("effectiveStart", ""),
                 "effectiveEnd": notam.get("effectiveEnd", ""),
-                "text": notam.get("text", ""),
-                "domestic_message": domestic,
+                "text": simple or notam.get("text", ""),
                 "classification": notam.get("classification", ""),
             })
         return json.dumps(notams)
