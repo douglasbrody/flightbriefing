@@ -91,5 +91,13 @@ def aircraft():
     return jsonify(AIRCRAFT_LIST)
 
 
+@app.route("/env-check")
+def env_check():
+    """Diagnostic: shows which key env vars are present (no values exposed)."""
+    keys = ["FAA_CLIENT_ID", "FAA_CLIENT_SECRET", "NMS_CLIENT_ID", "NMS_CLIENT_SECRET",
+            "ANTHROPIC_API_KEY", "FLASK_SECRET_KEY", "BRIEFER_USER"]
+    return jsonify({k: bool(os.environ.get(k)) for k in keys})
+
+
 if __name__ == "__main__":
     app.run(debug=True)
