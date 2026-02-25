@@ -6,7 +6,6 @@ Functions never raise exceptions to the caller.
 
 import json
 import os
-import time
 from math import cos, radians
 import requests
 
@@ -133,36 +132,7 @@ def get_winds_aloft(stations: list[str]) -> str:
     })
 
 
-FAA_NOTAM_BASE = "https://external-api.faa.gov/notamapi/v1"
-FAA_TOKEN_URL = "https://external-api.faa.gov/notamapi/oauth/token"
-_notam_token: str = ""
-_notam_token_expiry: float = 0.0
-
-
-def _get_notam_token() -> str:
-    """Fetch (or return cached) OAuth2 bearer token for FAA NOTAM API."""
-    global _notam_token, _notam_token_expiry
-    client_id = os.environ.get("FAA_CLIENT_ID", "")
-    client_secret = os.environ.get("FAA_CLIENT_SECRET", "")
-    if not client_id or not client_secret:
-        return ""
-    if _notam_token and time.time() < _notam_token_expiry - 30:
-        return _notam_token
-    try:
-        resp = requests.post(
-            FAA_TOKEN_URL,
-            data={"grant_type": "client_credentials",
-                  "client_id": client_id,
-                  "client_secret": client_secret},
-            timeout=TIMEOUT,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        _notam_token = data["access_token"]
-        _notam_token_expiry = time.time() + data.get("expires_in", 3600)
-        return _notam_token
-    except Exception:
-        return ""
+FAA_NOTAM_URL = "https://external-api.faa.gov/notamapi/v1/notams"
 
 
 def _nws_get(url: str):
@@ -263,12 +233,10 @@ def get_extended_forecast(icao: str) -> str:
 
 NOTAM_TIMEOUT = 8  # shorter timeout so NOTAM failures never hang the briefing
 
+
 def get_notams(icao: str) -> str:
     """
-    Fetch active NOTAMs for an airport.
-
-    Tries the FAA OAuth API first (if FAA_CLIENT_ID / FAA_CLIENT_SECRET are set),
-    then falls back to the FAA legacy NOTAM search service (no auth required).
+    Fetch active NOTAMs for an airport using the FAA NOTAM API.
 
     Args:
         icao: ICAO airport code, e.g. "KBDR"
@@ -277,32 +245,48 @@ def get_notams(icao: str) -> str:
         JSON array of NOTAM records, or a plain-English advisory.
     """
     icao = icao.upper().strip()
-
-    # ── Try OAuth API (if credentials are configured) ──────────────────────
-    token = _get_notam_token()
-    if token:
-        try:
-            resp = requests.get(
-                f"{FAA_NOTAM_BASE}/notams",
-                params={"icaoLocation": icao, "pageNum": 1, "pageSize": 50,
-                        "sortBy": "issueDate", "sortOrder": "Desc"},
-                headers={"Authorization": f"Bearer {token}"},
-                timeout=NOTAM_TIMEOUT,
+    client_id = os.environ.get("FAA_CLIENT_ID", "")
+    client_secret = os.environ.get("FAA_CLIENT_SECRET", "")
+    if not client_id or not client_secret:
+        return (
+            f"NOTAM data for {icao} requires FAA API credentials "
+            f"(FAA_CLIENT_ID / FAA_CLIENT_SECRET not set). "
+            f"Check https://preflight.faa.gov or call 1-800-WX-BRIEF for NOTAMs."
+        )
+    try:
+        resp = requests.get(
+            FAA_NOTAM_URL,
+            params={"icaoLocation": icao, "pageSize": 50},
+            auth=(client_id, client_secret),
+            timeout=NOTAM_TIMEOUT,
+        )
+        resp.raise_for_status()
+        items = resp.json().get("items", [])
+        if not items:
+            return f"No active NOTAMs found for {icao}."
+        notams = []
+        for item in items:
+            core = item.get("properties", {}).get("coreNOTAMData", {})
+            notam = core.get("notam", {})
+            translations = core.get("notamTranslation", [])
+            formatted = next(
+                (t.get("formattedText", "") for t in translations
+                 if t.get("type") == "LOCAL_FORMAT"), ""
             )
-            resp.raise_for_status()
-            items = resp.json().get("items", [])
-            if not items:
-                return f"No active NOTAMs found for {icao} (OAuth API)."
-            return json.dumps(items)
-        except Exception:
-            pass  # fall through to legacy
-
-    # No unauthenticated fallback available — FAA deprecated legacy endpoints.
-    return (
-        f"NOTAM data for {icao} requires FAA API credentials "
-        f"(FAA_CLIENT_ID / FAA_CLIENT_SECRET not set). "
-        f"Check https://preflight.faa.gov or call 1-800-WX-BRIEF for NOTAMs."
-    )
+            notams.append({
+                "location": notam.get("icaoLocation", icao),
+                "number": notam.get("number", ""),
+                "effectiveStart": notam.get("effectiveStart", ""),
+                "effectiveEnd": notam.get("effectiveEnd", ""),
+                "text": notam.get("text", ""),
+                "formattedText": formatted,
+                "classification": notam.get("classification", ""),
+            })
+        return json.dumps(notams)
+    except requests.exceptions.Timeout:
+        return f"NOTAM request for {icao} timed out. Check preflight.faa.gov before flight."
+    except Exception as e:
+        return f"Error fetching NOTAMs for {icao}: {str(e)}. Check preflight.faa.gov before flight."
 
 
 
