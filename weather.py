@@ -245,8 +245,10 @@ def get_notams(icao: str) -> str:
         JSON array of NOTAM records, or a plain-English advisory.
     """
     icao = icao.upper().strip()
-    client_id = os.environ.get("FAA_CLIENT_ID", "")
-    client_secret = os.environ.get("FAA_CLIENT_SECRET", "")
+    client_id = (os.environ.get("FAA_CLIENT_ID")
+                 or os.environ.get("NMS_CLIENT_ID", ""))
+    client_secret = (os.environ.get("FAA_CLIENT_SECRET")
+                     or os.environ.get("NMS_CLIENT_SECRET", ""))
     if not client_id or not client_secret:
         return (
             f"NOTAM data for {icao} requires FAA API credentials "
