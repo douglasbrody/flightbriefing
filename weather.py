@@ -133,8 +133,8 @@ def get_winds_aloft(stations: list[str]) -> str:
     })
 
 
-FAA_NOTAM_URL = "https://api-staging.cgifederal-aim.com/nmsapi/v1/notams"
-FAA_TOKEN_URL = "https://api-staging.cgifederal-aim.com/v1/auth/token"
+FAA_NOTAM_URL = "https://api-nms.aim.faa.gov/nmsapi/v1/notams"
+FAA_TOKEN_URL = "https://api-nms.aim.faa.gov/v1/auth/token"
 _notam_token: str = ""
 _notam_token_expiry: float = 0.0
 
